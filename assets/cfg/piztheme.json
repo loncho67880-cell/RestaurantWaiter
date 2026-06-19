@@ -1,0 +1,9 @@
+{
+  "restaurantName": "La Piazza",
+  "primaryColor": "#2E7D32",
+  "secondaryColor": "#C62828",
+  "backgroundColor": "#FFFDF9",
+  "surfaceColor": "#FFFFFF",
+  "textOnPrimary": "#FFFFFF",
+  "textOnBackground": "#2E241E"
+}

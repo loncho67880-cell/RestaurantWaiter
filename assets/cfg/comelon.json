@@ -1,0 +1,9 @@
+{
+  "restaurantName": "El Comelón",
+  "primaryColor": "#FF5722",
+  "secondaryColor": "#FFC107",
+  "backgroundColor": "#F5F5F5",
+  "surfaceColor": "#FFFFFF",
+  "textOnPrimary": "#FFFFFF",
+  "textOnBackground": "#212121"
+}

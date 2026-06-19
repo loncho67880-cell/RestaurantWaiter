@@ -1,0 +1,9 @@
+{
+  "restaurantName": "El Corral",
+  "primaryColor": "#D35400",
+  "secondaryColor": "#E67E22",
+  "backgroundColor": "#2C1A11",
+  "surfaceColor": "#3E2723",
+  "textOnPrimary": "#FFFFFF",
+  "textOnBackground": "#F5EBE6"
+}
