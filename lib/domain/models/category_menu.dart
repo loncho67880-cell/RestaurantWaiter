@@ -16,9 +16,11 @@ class CategoryMenu extends Equatable {
 
   factory CategoryMenu.fromJson(Map<String, dynamic> json) {
     return CategoryMenu(
-      id: json['id'],
-      name: json['name'],
-      order: json['order'],
+      id: json['id']?.toString() ?? '',
+      name: json['name'] as String? ?? '',
+      order: json['order'] is int
+          ? json['order'] as int
+          : int.tryParse(json['order']?.toString() ?? '') ?? 0,
       dishes: (json['dishes'] as List)
           .map((dishJson) => Dish.fromJson(dishJson))
           .toList(),

@@ -11,6 +11,7 @@ class AppConfigState {
   final bool isLoading;
   final String restaurantId;
   final String branchId;
+  final String branchName;
 
   AppConfigState({
     required this.themeData,
@@ -20,6 +21,7 @@ class AppConfigState {
     this.isLoading = false,
     this.restaurantId = '',
     this.branchId = '',
+    this.branchName = '',
   });
 
   factory AppConfigState.initial() {
@@ -40,6 +42,7 @@ class AppConfigState {
     bool? isLoading,
     String? restaurantId,
     String? branchId,
+    String? branchName,
   }) {
     return AppConfigState(
       themeData: themeData ?? this.themeData,
@@ -49,6 +52,7 @@ class AppConfigState {
       isLoading: isLoading ?? this.isLoading,
       restaurantId: restaurantId ?? this.restaurantId,
       branchId: branchId ?? this.branchId,
+      branchName: branchName ?? this.branchName,
     );
   }
 }
@@ -56,13 +60,20 @@ class AppConfigState {
 class AppConfigCubit extends Cubit<AppConfigState> {
   AppConfigCubit() : super(AppConfigState.initial());
 
+  void selectBranch({required String branchId, required String branchName}) {
+    emit(state.copyWith(branchId: branchId, branchName: branchName));
+  }
+
+  void clearBranch() {
+    emit(state.copyWith(branchId: '', branchName: ''));
+  }
+
   Future<void> loadConfiguration({String locale = 'es'}) async {
     try {
       // 1. Cargar settings de la app (IDs de tenant)
       final settingsStr = await rootBundle.loadString('assets/cfg/appsettings.json');
       final Map<String, dynamic> settingsJson = json.decode(settingsStr);
       final restaurantId = settingsJson['restaurantId'] as String? ?? '';
-      final branchId = settingsJson['branchId'] as String? ?? '';
 
       // 2. Cargar el JSON del Tema Dinámico
       final themeStr = await rootBundle.loadString('assets/cfg/theme_config.json');
@@ -105,7 +116,6 @@ class AppConfigCubit extends Cubit<AppConfigState> {
         localeCode: locale,
         isLoading: false,
         restaurantId: restaurantId,
-        branchId: branchId,
       ));
     } catch (e) {
       emit(state.copyWith(isLoading: false));

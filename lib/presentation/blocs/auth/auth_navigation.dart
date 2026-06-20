@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:restaurantwaiter/domain/models/customer.dart';
+import 'package:restaurantwaiter/domain/models/waiter.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 
 String resolveLocaleCode(String? preferredLanguage) {
@@ -8,17 +8,24 @@ String resolveLocaleCode(String? preferredLanguage) {
   return 'es';
 }
 
-Future<void> applyCustomerLocale(BuildContext context, Customer customer) {
+Future<void> applyWaiterLocale(BuildContext context, Waiter waiter) {
   return context
       .read<AppConfigCubit>()
-      .loadConfiguration(locale: resolveLocaleCode(customer.preferredLanguage));
+      .loadConfiguration(locale: resolveLocaleCode(waiter.preferredLanguage));
 }
 
-/// Waiters do not go through the customer profile-completion flow; once the
-/// backend authenticates the waiter account we go straight to the waiter home
-/// (active reservations).
-Future<void> navigateAfterAuth(BuildContext context, Customer customer) async {
-  await applyCustomerLocale(context, customer);
+/// Waiters choose a branch after login, then go to active reservations.
+Future<void> navigateAfterAuth(BuildContext context, Waiter waiter) async {
+  await applyWaiterLocale(context, waiter);
   if (!context.mounted) return;
-  Navigator.pushReplacementNamed(context, '/home');
+
+  final defaultBranchId = waiter.defaultBranchId?.trim();
+  if (defaultBranchId != null && defaultBranchId.isNotEmpty) {
+    context.read<AppConfigCubit>().selectBranch(
+          branchId: defaultBranchId,
+          branchName: '',
+        );
+  }
+
+  Navigator.pushReplacementNamed(context, '/branch-select');
 }

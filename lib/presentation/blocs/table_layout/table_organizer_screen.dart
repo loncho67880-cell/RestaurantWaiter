@@ -5,6 +5,7 @@ import 'package:restaurantwaiter/domain/repositories/table_layout_repository.dar
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/table_layout/table_layout_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/table_layout/table_layout_state.dart';
+import 'package:restaurantwaiter/presentation/widgets/branch_guard.dart';
 
 class TableOrganizerScreen extends StatelessWidget {
   const TableOrganizerScreen({super.key});
@@ -12,12 +13,14 @@ class TableOrganizerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appConfig = context.read<AppConfigCubit>().state;
-    return BlocProvider(
-      create: (_) => TableLayoutCubit(
-        repository: context.read<TableLayoutRepository>(),
-        branchId: appConfig.branchId,
-      )..load(),
-      child: const _TableOrganizerView(),
+    return BranchGuard(
+      child: BlocProvider(
+        create: (_) => TableLayoutCubit(
+          repository: context.read<TableLayoutRepository>(),
+          branchId: appConfig.branchId,
+        )..load(),
+        child: const _TableOrganizerView(),
+      ),
     );
   }
 }

@@ -8,6 +8,7 @@ enum PreOrderStatus {
   none,
   pendingWaiterConfirmation,
   inPreparation,
+  readyForPayment,
 }
 
 class Reservation {
@@ -38,14 +39,15 @@ class Reservation {
   });
 
   factory Reservation.fromJson(Map<String, dynamic> json) => Reservation(
-        id: json['id'] as String,
-        branchId: json['branchId'] as String? ?? '',
-        tableId: json['tableId'] as String,
-        tableNumber: json['tableNumber'] as int,
-        floor: json['floor'] as int,
-        reservationDate:
-            parseApiReservationDate(json['reservationDate'] as String),
-        guestCount: json['guestCount'] as int,
+        id: _readString(json['id']),
+        branchId: _readString(json['branchId']),
+        tableId: _readString(json['tableId']),
+        tableNumber: _readInt(json['tableNumber'] ?? _tableField(json, 'number')),
+        floor: _readInt(json['floor'] ?? _tableField(json, 'floor')),
+        reservationDate: parseApiReservationDate(
+          _readString(json['reservationDate']),
+        ),
+        guestCount: _readInt(json['guestCount']),
         status: _parseStatus(json['status'] as String?),
         preOrderStatus: _parsePreOrderStatus(json['preOrderStatus'] as String?),
         notes: json['notes'] as String?,
@@ -53,6 +55,20 @@ class Reservation {
             .map((e) => ReservationItem.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
+
+  static String _readString(dynamic value) => value?.toString() ?? '';
+
+  static int _readInt(dynamic value, [int fallback = 0]) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
+  }
+
+  static dynamic _tableField(Map<String, dynamic> json, String field) {
+    final table = json['table'];
+    if (table is Map<String, dynamic>) return table[field];
+    return null;
+  }
 
   static ReservationStatus _parseStatus(String? s) => switch (s) {
         'Confirmada' => ReservationStatus.confirmed,
@@ -64,6 +80,7 @@ class Reservation {
         'PendienteConfirmacionMesero' => PreOrderStatus.pendingWaiterConfirmation,
         'ConfirmadoMesero' || 'EnCocina' || 'EnPreparacion' =>
           PreOrderStatus.inPreparation,
+        'ListoParaPagar' => PreOrderStatus.readyForPayment,
         _ => PreOrderStatus.none,
       };
 
@@ -79,8 +96,17 @@ class Reservation {
 
   bool get isInPreparation => preOrderStatus == PreOrderStatus.inPreparation;
 
+  bool get isReadyForPayment => preOrderStatus == PreOrderStatus.readyForPayment;
+
+  /// Waiter delivered all dishes — mark table ready to pay.
+  bool get canMarkReadyForPayment =>
+      !isCancelled && isInPreparation;
+
+  /// Waiter can adjust the pre-order before sending it to the kitchen.
+  bool get canWaiterEditOrder => !isCancelled && isAwaitingWaiter;
+
   /// A reservation the waiter can still send to the kitchen: it must have
-  /// pre-ordered items and not be cancelled nor already in preparation.
+  /// pre-ordered items and await waiter confirmation.
   bool get canWaiterConfirm =>
-      !isCancelled && items.isNotEmpty && !isInPreparation;
+      !isCancelled && isAwaitingWaiter && items.isNotEmpty;
 }

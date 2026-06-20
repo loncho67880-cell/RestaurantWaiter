@@ -1,6 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../domain/models/customer_profile_data.dart';
+import 'package:restaurantwaiter/domain/exceptions/waiter_not_registered_exception.dart';
 import '../../../domain/repositories/auth_repository.dart';
 import 'auth_state.dart';
 
@@ -12,37 +11,12 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> signInWithGoogle() async {
     try {
       emit(AuthLoading());
-      final customer = await authRepository.signInWithGoogle();
-      emit(AuthAuthenticated(customer));
-    } catch (e, stack) {
-      debugPrint('ERROR: $e');
-      debugPrint('$stack');
+      final waiter = await authRepository.signInWithGoogle();
+      emit(AuthAuthenticated(waiter));
+    } on WaiterNotRegisteredException catch (e) {
+      emit(AuthError(e.message));
+    } catch (e) {
       emit(AuthError('$e'));
-    }
-  }
-
-  Future<String?> completeProfile(CustomerProfileData profile) async {
-    final currentState = state;
-    if (currentState is! AuthAuthenticated) return 'No hay una sesión activa.';
-
-    final previousCustomer = currentState.customer;
-
-    try {
-      emit(AuthLoading());
-      final customer = await authRepository.updateProfile(
-        previousCustomer,
-        profile,
-      );
-      final customerWithLanguage = customer.preferredLanguage == null
-          ? customer.copyWith(preferredLanguage: profile.preferredLanguage)
-          : customer;
-      emit(AuthAuthenticated(customerWithLanguage));
-      return null;
-    } catch (e, stack) {
-      debugPrint('ERROR: $e');
-      debugPrint('$stack');
-      emit(AuthAuthenticated(previousCustomer));
-      return e.toString();
     }
   }
 

@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:restaurantwaiter/domain/models/customer.dart';
-import 'package:restaurantwaiter/domain/models/customer_profile_data.dart';
+import 'package:restaurantwaiter/domain/exceptions/waiter_not_registered_exception.dart';
+import 'package:restaurantwaiter/domain/models/waiter.dart';
 
 import '../../domain/repositories/auth_repository.dart';
 import '../services/google_auth_service.dart';
@@ -17,46 +17,39 @@ class AuthRepositoryImpl implements AuthRepository {
   });
 
   @override
-  Future<Customer> signInWithGoogle() async {
+  Future<Waiter> signInWithGoogle() async {
     final idToken = await googleAuthService.signIn();
 
-    // The backend distinguishes the "waiter" role from the same Google login
-    // endpoint based on the authenticated account.
-    final response = await dio.post(
-      '/api/GoogleAuth/google',
-      data: {
-        'idToken': idToken,
-        'restaurantId': restaurantId,
-      },
-    );
+    try {
+      final response = await dio.post(
+        '/api/WaiterAuth/google',
+        data: {
+          'idToken': idToken,
+          'restaurantId': restaurantId,
+        },
+      );
 
-    final data = response.data as Map<String, dynamic>;
-    final customerData =
-        data['customer'] as Map<String, dynamic>? ?? data;
+      final data = response.data as Map<String, dynamic>;
+      final waiterData =
+          data['waiter'] as Map<String, dynamic>? ?? data;
 
-    return Customer.fromJson(
-      customerData,
-      token: data['accessToken'] as String,
-    );
-  }
-
-  @override
-  Future<Customer> updateProfile(
-    Customer customer,
-    CustomerProfileData profile,
-  ) async {
-    final response = await dio.put(
-      '/api/GoogleAuth/profile',
-      data: profile.toJson(),
-      options: Options(
-        headers: {'Authorization': 'Bearer ${customer.token}'},
-      ),
-    );
-
-    return Customer.fromJson(
-      response.data as Map<String, dynamic>,
-      token: customer.token,
-    );
+      return Waiter.fromJson(
+        waiterData,
+        token: data['accessToken'] as String,
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 403) {
+        final body = e.response?.data;
+        final message = body is Map<String, dynamic>
+            ? body['message'] as String? ?? body['Message'] as String?
+            : null;
+        throw WaiterNotRegisteredException(
+          message ??
+              'No está registrado como mesero. Contacte al administrador.',
+        );
+      }
+      rethrow;
+    }
   }
 
   @override

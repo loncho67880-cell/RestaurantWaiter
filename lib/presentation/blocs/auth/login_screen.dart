@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/theme_restaurant.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_navigation.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
@@ -15,14 +14,13 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
-    final t = context.read<AppConfigCubit>().translate;
 
     return Scaffold(
       backgroundColor: themeData.background,
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
-            navigateAfterAuth(context, state.customer);
+            navigateAfterAuth(context, state.waiter);
           }
         },
         builder: (context, state) {
@@ -46,11 +44,10 @@ class LoginScreen extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: Image.asset(
-                        'assets/images/logo.png',
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.contain,
+                      child: Icon(
+                        Icons.restaurant_menu,
+                        size: 48,
+                        color: themeData.primary,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -63,8 +60,7 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      t('loginWaiterSubtitle'),
-                      textAlign: TextAlign.center,
+                      'Inicia sesión para continuar',
                       style: textTheme.bodyLarge?.copyWith(
                         color: themeData.onBackground.withValues(alpha: 0.7),
                       ),
@@ -89,9 +85,7 @@ class LoginScreen extends StatelessWidget {
                         ),
                         onPressed: isLoading
                             ? null
-                            : () => context
-                                .read<AuthCubit>()
-                                .signInWithGoogle(),
+                            : () => context.read<AuthCubit>().signInWithGoogle(),
                         child: isLoading
                             ? SizedBox(
                                 height: 24,
@@ -111,7 +105,7 @@ class LoginScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 12),
                                   Text(
-                                    t('loginContinueWithGoogle'),
+                                    'Continuar con Google',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
@@ -159,6 +153,10 @@ class LoginScreen extends StatelessWidget {
   String _friendlyError(String message) {
     if (message.contains('cancelado') || message.contains('canceled')) {
       return 'Inicio de sesión cancelado.';
+    }
+    if (message.contains('registrado como mesero') ||
+        message.contains('Contacte al administrador')) {
+      return message.replaceFirst('Exception: ', '');
     }
     return message.replaceFirst('Exception: ', '');
   }

@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:restaurantwaiter/core/utils/reservation_datetime.dart';
 import 'package:restaurantwaiter/domain/models/dish.dart';
-import 'package:restaurantwaiter/domain/models/table_model.dart';
-import 'package:restaurantwaiter/domain/repositories/order_repository.dart';
+import 'package:restaurantwaiter/domain/models/reservation.dart';
+import 'package:restaurantwaiter/domain/repositories/reservation_repository.dart';
 import 'package:restaurantwaiter/infrastructure/repositories/menu_repository.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
-import 'package:restaurantwaiter/presentation/blocs/manual_order/manual_order_cubit.dart';
-import 'package:restaurantwaiter/presentation/blocs/manual_order/manual_order_state.dart';
+import 'package:restaurantwaiter/presentation/blocs/reservations/edit_reservation_order_cubit.dart';
+import 'package:restaurantwaiter/presentation/blocs/reservations/edit_reservation_order_state.dart';
 import 'package:restaurantwaiter/presentation/widgets/branch_guard.dart';
 import 'package:restaurantwaiter/presentation/widgets/menu_category_selector.dart';
 
-class ManualOrderScreen extends StatelessWidget {
-  const ManualOrderScreen({super.key});
+class EditReservationOrderScreen extends StatelessWidget {
+  final Reservation reservation;
+
+  const EditReservationOrderScreen({super.key, required this.reservation});
 
   @override
   Widget build(BuildContext context) {
@@ -26,64 +29,48 @@ class ManualOrderScreen extends StatelessWidget {
 
     return BranchGuard(
       child: BlocProvider(
-        create: (_) => ManualOrderCubit(
+        create: (_) => EditReservationOrderCubit(
           menuRepository: context.read<MenuRepository>(),
-          orderRepository: context.read<OrderRepository>(),
+          reservationRepository: context.read<ReservationRepository>(),
+          reservation: reservation,
           restaurantId: appConfig.restaurantId,
           branchId: appConfig.branchId,
           accessToken: authState.waiter.token,
           localeCode: appConfig.localeCode,
         )..loadMenu(),
-        child: const _ManualOrderView(),
+        child: _EditReservationOrderView(reservation: reservation),
       ),
     );
   }
 }
 
-class _ManualOrderView extends StatefulWidget {
-  const _ManualOrderView();
+class _EditReservationOrderView extends StatelessWidget {
+  final Reservation reservation;
 
-  @override
-  State<_ManualOrderView> createState() => _ManualOrderViewState();
-}
+  const _EditReservationOrderView({required this.reservation});
 
-class _ManualOrderViewState extends State<_ManualOrderView> {
-  final _notesController = TextEditingController();
-  int _guestCount = 1;
-
-  @override
-  void dispose() {
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
+  Future<void> _save(BuildContext context) async {
     final t = context.read<AppConfigCubit>().translate;
     final theme = Theme.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
-    final errorKey = await context.read<ManualOrderCubit>().submit(
-          guestCount: _guestCount,
-          notes: _notesController.text.trim().isEmpty
-              ? null
-              : _notesController.text.trim(),
-        );
+    final result = await context.read<EditReservationOrderCubit>().save();
+    if (!context.mounted) return;
 
-    if (!mounted) return;
-
-    if (errorKey == null) {
+    if (result is Reservation) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(t('manualOrderSubmitSuccess')),
+          content: Text(t('waiterEditOrderSuccess')),
           behavior: SnackBarBehavior.floating,
         ),
       );
-      navigator.pop();
-    } else {
+      navigator.pop(result);
+    } else if (result is String) {
+      final isKnownKey = result.startsWith('waiter') || result.startsWith('manual');
       messenger.showSnackBar(
         SnackBar(
-          content: Text(t(errorKey)),
+          content: Text(isKnownKey ? t(result) : result),
           backgroundColor: theme.colorScheme.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -95,13 +82,14 @@ class _ManualOrderViewState extends State<_ManualOrderView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final t = context.read<AppConfigCubit>().translate;
+    final locale = context.read<AppConfigCubit>().state.localeCode;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         backgroundColor: theme.colorScheme.primary,
         title: Text(
-          t('manualOrderTitle'),
+          t('waiterEditOrderTitle'),
           style: TextStyle(
             color: theme.colorScheme.onPrimary,
             fontWeight: FontWeight.bold,
@@ -109,12 +97,12 @@ class _ManualOrderViewState extends State<_ManualOrderView> {
         ),
         iconTheme: IconThemeData(color: theme.colorScheme.onPrimary),
       ),
-      body: BlocBuilder<ManualOrderCubit, ManualOrderState>(
+      body: BlocBuilder<EditReservationOrderCubit, EditReservationOrderState>(
         builder: (context, state) {
           switch (state.status) {
-            case ManualOrderStatus.loading:
+            case EditReservationOrderStatus.loading:
               return const Center(child: CircularProgressIndicator());
-            case ManualOrderStatus.error:
+            case EditReservationOrderStatus.error:
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32),
@@ -130,22 +118,28 @@ class _ManualOrderViewState extends State<_ManualOrderView> {
                       const SizedBox(height: 24),
                       ElevatedButton(
                         onPressed: () =>
-                            context.read<ManualOrderCubit>().loadMenu(),
+                            context.read<EditReservationOrderCubit>().loadMenu(),
                         child: Text(t('waiterRetry')),
                       ),
                     ],
                   ),
                 ),
               );
-            case ManualOrderStatus.loaded:
-              return _buildContent(context, state);
+            case EditReservationOrderStatus.loaded:
+              return _buildContent(context, state, t, locale, theme);
           }
         },
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, ManualOrderState state) {
+  Widget _buildContent(
+    BuildContext context,
+    EditReservationOrderState state,
+    String Function(String, {Map<String, String>? replacements}) t,
+    String locale,
+    ThemeData theme,
+  ) {
     final category = state.selectedCategory;
 
     return Column(
@@ -156,22 +150,88 @@ class _ManualOrderViewState extends State<_ManualOrderView> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: _TableAndGuestsCard(
-                    tables: state.tables,
-                    selectedTableId: state.selectedTableId,
-                    guestCount: _guestCount,
-                    notesController: _notesController,
-                    onTableChanged: (id) =>
-                        context.read<ManualOrderCubit>().selectTable(id),
-                    onGuestChanged: (v) => setState(() => _guestCount = v),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${t('floor')} ${reservation.floor} — '
+                          '${t('tableNum')} ${reservation.tableNumber}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          formatReservationDateTime(
+                            reservation.reservationDate,
+                            locale,
+                          ),
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          t('waiterEditOrderHint'),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.65),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
+              if (state.items.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t('waiterEditOrderCurrent'),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...state.items.map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Text(
+                              '${item.quantity}x ${item.dishName}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: MenuCategorySelector(
                   categories: state.categories,
                   selectedCategoryId: state.selectedCategoryId,
-                  onCategorySelected: context.read<ManualOrderCubit>().selectCategory,
+                  onCategorySelected:
+                      context.read<EditReservationOrderCubit>().selectCategory,
                 ),
               ),
               if (category != null)
@@ -188,11 +248,19 @@ class _ManualOrderViewState extends State<_ManualOrderView> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final dish = category.dishes[index];
-                        return _DishCard(
-                          dish: dish,
-                          quantity: context
-                              .read<ManualOrderCubit>()
-                              .quantityOf(dish.id),
+                        return BlocBuilder<EditReservationOrderCubit,
+                            EditReservationOrderState>(
+                          buildWhen: (prev, curr) =>
+                              prev.cart != curr.cart ||
+                              prev.selectedCategoryId != curr.selectedCategoryId,
+                          builder: (context, cartState) {
+                            return _DishCard(
+                              dish: dish,
+                              quantity: context
+                                  .read<EditReservationOrderCubit>()
+                                  .quantityForDish(dish),
+                            );
+                          },
                         );
                       },
                       childCount: category.dishes.length,
@@ -206,119 +274,11 @@ class _ManualOrderViewState extends State<_ManualOrderView> {
           totalItems: state.totalItems,
           total: state.total,
           submitting: state.submitting,
-          onSubmit: state.totalItems == 0 || state.submitting ? null : _submit,
+          onSubmit: !state.canSave || state.submitting
+              ? null
+              : () => _save(context),
         ),
       ],
-    );
-  }
-}
-
-class _TableAndGuestsCard extends StatelessWidget {
-  final List<TableModel> tables;
-  final String? selectedTableId;
-  final TextEditingController notesController;
-  final int guestCount;
-  final ValueChanged<String> onTableChanged;
-  final ValueChanged<int> onGuestChanged;
-
-  const _TableAndGuestsCard({
-    required this.tables,
-    required this.selectedTableId,
-    required this.notesController,
-    required this.guestCount,
-    required this.onTableChanged,
-    required this.onGuestChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final t = context.read<AppConfigCubit>().translate;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (tables.isEmpty)
-            Row(
-              children: [
-                Icon(Icons.info_outline_rounded,
-                    size: 18, color: theme.colorScheme.error),
-                const SizedBox(width: 8),
-                Expanded(child: Text(t('manualOrderNoTables'))),
-              ],
-            )
-          else
-            DropdownButtonFormField<String>(
-              initialValue: selectedTableId,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: t('manualOrderSelectTable'),
-                prefixIcon: const Icon(Icons.table_restaurant_rounded),
-                border: const OutlineInputBorder(),
-              ),
-              items: tables
-                  .map(
-                    (table) => DropdownMenuItem(
-                      value: table.tableId,
-                      child: Text(
-                        '${t('tableNum')} ${table.tableNumber} · '
-                        '${t('floor')} ${table.floor} · '
-                        '${table.capacity}p',
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) onTableChanged(value);
-              },
-            ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Icon(Icons.people_rounded, color: theme.colorScheme.primary),
-              const SizedBox(width: 10),
-              Text(t('guestCount'),
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              const Spacer(),
-              IconButton.filledTonal(
-                onPressed:
-                    guestCount > 1 ? () => onGuestChanged(guestCount - 1) : null,
-                icon: const Icon(Icons.remove_rounded),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text('$guestCount',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-              IconButton.filledTonal(
-                onPressed: () => onGuestChanged(guestCount + 1),
-                icon: const Icon(Icons.add_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: notesController,
-            decoration: InputDecoration(
-              labelText: t('notesLabel'),
-              hintText: t('notesHint'),
-              prefixIcon: const Icon(Icons.notes_rounded),
-              border: const OutlineInputBorder(),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -332,7 +292,7 @@ class _DishCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cubit = context.read<ManualOrderCubit>();
+    final cubit = context.read<EditReservationOrderCubit>();
 
     return Card(
       elevation: 2,
@@ -392,7 +352,7 @@ class _DishCard extends StatelessWidget {
                 children: [
                   _QtyButton(
                     icon: Icons.remove_rounded,
-                    onTap: () => cubit.removeDish(dish.id),
+                    onTap: () => cubit.removeDish(dish),
                   ),
                   Text('$quantity',
                       style: const TextStyle(
@@ -466,32 +426,39 @@ class _CartBar extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
               children: [
-                Text(
-                  t('manualOrderItemsCount',
-                      replacements: {'{count}': '$totalItems'}),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                Text(
-                  '\$${total.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t('manualOrderItemsCount',
+                          replacements: {'{count}': '$totalItems'}),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    Text(
+                      '\$${total.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const Spacer(),
+            const SizedBox(height: 12),
             SizedBox(
               height: 50,
+              width: double.infinity,
               child: FilledButton.icon(
                 onPressed: onSubmit,
                 icon: submitting
@@ -503,8 +470,8 @@ class _CartBar extends StatelessWidget {
                           color: theme.colorScheme.onPrimary,
                         ),
                       )
-                    : const Icon(Icons.send_rounded),
-                label: Text(t('manualOrderSubmit')),
+                    : const Icon(Icons.save_rounded),
+                label: Text(t('waiterEditOrderSave')),
                 style: FilledButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
                   foregroundColor: theme.colorScheme.onPrimary,

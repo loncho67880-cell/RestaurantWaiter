@@ -22,7 +22,7 @@ class Dish extends Equatable {
 
   factory Dish.fromJson(Map<String, dynamic> json) {
     return Dish(
-      id: json['id'] as String,
+      id: json['id']?.toString() ?? '',
       name: json['name'] as String,
       description: json['description'] as String,
       price: (json['price'] as num).toDouble(),

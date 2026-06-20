@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:restaurantwaiter/domain/models/reservation.dart';
 import 'package:restaurantwaiter/domain/repositories/reservation_repository.dart';
 
 import 'waiter_reservations_state.dart';
@@ -17,24 +19,27 @@ class WaiterReservationsCubit extends Cubit<WaiterReservationsState> {
   Future<void> load() async {
     emit(state.copyWith(
       status: WaiterReservationsStatus.loading,
-      errorKey: null,
+      clearErrors: true,
     ));
     try {
       final reservations =
           await reservationRepository.getActiveReservations(
         branchId: branchId,
         accessToken: accessToken,
-      )
-            ..sort((a, b) => a.reservationDate.compareTo(b.reservationDate));
+      );
+      _sortReservations(reservations);
 
       emit(state.copyWith(
         status: WaiterReservationsStatus.loaded,
         reservations: reservations,
       ));
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('ERROR loading reservations: $e');
+      debugPrint('$stack');
       emit(state.copyWith(
         status: WaiterReservationsStatus.error,
         errorKey: 'waiterReservationsLoadError',
+        errorMessage: e.toString().replaceFirst('Exception: ', ''),
       ));
     }
   }
@@ -51,15 +56,62 @@ class WaiterReservationsCubit extends Cubit<WaiterReservationsState> {
       final updatedList = state.reservations
           .map((r) => r.id == updated.id ? updated : r)
           .toList();
+      _sortReservations(updatedList);
 
       emit(state.copyWith(
         reservations: updatedList,
-        confirmingId: null,
+        clearConfirmingId: true,
       ));
       return null;
     } catch (_) {
-      emit(state.copyWith(confirmingId: null));
+      emit(state.copyWith(clearConfirmingId: true));
       return 'waiterConfirmError';
     }
+  }
+
+  Future<String?> markReadyForPayment(String reservationId) async {
+    emit(state.copyWith(markingReadyId: reservationId));
+    try {
+      await reservationRepository.markReadyForPayment(
+        reservationId: reservationId,
+        accessToken: accessToken,
+      );
+
+      final updatedList = state.reservations
+          .where((r) => r.id != reservationId)
+          .toList();
+
+      emit(state.copyWith(
+        reservations: updatedList,
+        clearMarkingReadyId: true,
+      ));
+      return null;
+    } catch (_) {
+      emit(state.copyWith(clearMarkingReadyId: true));
+      return 'waiterMarkReadyError';
+    }
+  }
+
+  void replaceReservation(Reservation updated) {
+    final updatedList = state.reservations
+        .map((r) => r.id == updated.id ? updated : r)
+        .toList();
+    _sortReservations(updatedList);
+    emit(state.copyWith(reservations: updatedList));
+  }
+
+  /// Pending waiter confirmation first, then in preparation, then by time.
+  void _sortReservations(List<Reservation> reservations) {
+    reservations.sort((a, b) {
+      int priority(Reservation r) {
+        if (r.isAwaitingWaiter) return 0;
+        if (r.isInPreparation) return 1;
+        return 2;
+      }
+
+      final priorityCompare = priority(a).compareTo(priority(b));
+      if (priorityCompare != 0) return priorityCompare;
+      return a.reservationDate.compareTo(b.reservationDate);
+    });
   }
 }

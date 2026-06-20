@@ -6,8 +6,10 @@ import 'package:restaurantwaiter/domain/repositories/reservation_repository.dart
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
+import 'package:restaurantwaiter/presentation/blocs/reservations/edit_reservation_order_screen.dart';
 import 'package:restaurantwaiter/presentation/blocs/reservations/waiter_reservations_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/reservations/waiter_reservations_state.dart';
+import 'package:restaurantwaiter/presentation/widgets/branch_guard.dart';
 
 class ActiveReservationsScreen extends StatelessWidget {
   const ActiveReservationsScreen({super.key});
@@ -23,13 +25,15 @@ class ActiveReservationsScreen extends StatelessWidget {
       );
     }
 
-    return BlocProvider(
-      create: (_) => WaiterReservationsCubit(
-        reservationRepository: context.read<ReservationRepository>(),
-        branchId: appConfig.branchId,
-        accessToken: authState.customer.token,
-      )..load(),
-      child: const _ActiveReservationsView(),
+    return BranchGuard(
+      child: BlocProvider(
+        create: (_) => WaiterReservationsCubit(
+          reservationRepository: context.read<ReservationRepository>(),
+          branchId: appConfig.branchId,
+          accessToken: authState.waiter.token,
+        )..load(),
+        child: const _ActiveReservationsView(),
+      ),
     );
   }
 }
@@ -63,6 +67,7 @@ class _ActiveReservationsView extends StatelessWidget {
             tooltip: t('logout'),
             icon: Icon(Icons.logout_rounded, color: theme.colorScheme.onPrimary),
             onPressed: () async {
+              context.read<AppConfigCubit>().clearBranch();
               await context.read<AuthCubit>().signOut();
               if (context.mounted) {
                 Navigator.pushReplacementNamed(context, '/login');
@@ -79,6 +84,7 @@ class _ActiveReservationsView extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             case WaiterReservationsStatus.error:
               return _ErrorView(
+                message: state.errorMessage,
                 onRetry: () => context.read<WaiterReservationsCubit>().load(),
               );
             case WaiterReservationsStatus.loaded:
@@ -106,7 +112,10 @@ class _ActiveReservationsView extends StatelessWidget {
                         child: _ReservationCard(
                           reservation: r,
                           isConfirming: state.confirmingId == r.id,
+                          isMarkingReady: state.markingReadyId == r.id,
                           onConfirm: () => _confirm(context, r),
+                          onMarkReady: () => _markReady(context, r),
+                          onEditOrder: () => _editOrder(context, r),
                         ),
                       ),
                     ),
@@ -150,6 +159,43 @@ class _ActiveReservationsView extends StatelessWidget {
       );
     }
   }
+
+  Future<void> _markReady(BuildContext context, Reservation reservation) async {
+    final t = context.read<AppConfigCubit>().translate;
+    final theme = Theme.of(context);
+    final cubit = context.read<WaiterReservationsCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    final errorKey = await cubit.markReadyForPayment(reservation.id);
+    if (errorKey == null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(t('waiterMarkReadySuccess')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(t(errorKey)),
+          backgroundColor: theme.colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _editOrder(BuildContext context, Reservation reservation) async {
+    final updated = await Navigator.push<Reservation>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditReservationOrderScreen(reservation: reservation),
+      ),
+    );
+    if (updated != null && context.mounted) {
+      context.read<WaiterReservationsCubit>().replaceReservation(updated);
+    }
+  }
 }
 
 class _WaiterDrawer extends StatelessWidget {
@@ -159,6 +205,7 @@ class _WaiterDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final t = context.read<AppConfigCubit>().translate;
+    final appConfig = context.read<AppConfigCubit>().state;
 
     return Drawer(
       child: SafeArea(
@@ -172,13 +219,30 @@ class _WaiterDrawer extends StatelessWidget {
                       color: theme.colorScheme.onPrimary, size: 36),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      t('waiterHomeTitle'),
-                      style: TextStyle(
-                        color: theme.colorScheme.onPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          t('waiterHomeTitle'),
+                          style: TextStyle(
+                            color: theme.colorScheme.onPrimary,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (appConfig.branchName.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            appConfig.branchName,
+                            style: TextStyle(
+                              color: theme.colorScheme.onPrimary
+                                  .withValues(alpha: 0.85),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -189,6 +253,15 @@ class _WaiterDrawer extends StatelessWidget {
                   color: theme.colorScheme.primary),
               title: Text(t('waiterHomeTitle')),
               onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: Icon(Icons.storefront_rounded,
+                  color: theme.colorScheme.primary),
+              title: Text(t('changeBranch')),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushReplacementNamed(context, '/branch-select');
+              },
             ),
             ListTile(
               leading:
@@ -253,9 +326,13 @@ class _EmptyView extends StatelessWidget {
 }
 
 class _ErrorView extends StatelessWidget {
+  final String? message;
   final VoidCallback onRetry;
 
-  const _ErrorView({required this.onRetry});
+  const _ErrorView({
+    this.message,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -272,7 +349,7 @@ class _ErrorView extends StatelessWidget {
                 size: 48, color: theme.colorScheme.error),
             const SizedBox(height: 16),
             Text(
-              t('waiterReservationsLoadError'),
+              message ?? t('waiterReservationsLoadError'),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge,
             ),
@@ -291,12 +368,18 @@ class _ErrorView extends StatelessWidget {
 class _ReservationCard extends StatelessWidget {
   final Reservation reservation;
   final bool isConfirming;
+  final bool isMarkingReady;
   final VoidCallback onConfirm;
+  final VoidCallback onMarkReady;
+  final VoidCallback onEditOrder;
 
   const _ReservationCard({
     required this.reservation,
     required this.isConfirming,
+    required this.isMarkingReady,
     required this.onConfirm,
+    required this.onMarkReady,
+    required this.onEditOrder,
   });
 
   @override
@@ -329,23 +412,27 @@ class _ReservationCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _statusColor().withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _statusLabel(t),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _statusColor(),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _statusColor().withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _statusLabel(t),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _statusColor(),
+                        ),
                       ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Text(
                     '${t('reservationId')}: ${reservation.id.substring(0, reservation.id.length < 8 ? reservation.id.length : 8).toUpperCase()}',
                     style: TextStyle(
@@ -416,14 +503,62 @@ class _ReservationCard extends StatelessWidget {
                   value: reservation.notes!,
                 ),
               ],
-              if (reservation.canWaiterConfirm) ...[
+              if (reservation.canWaiterEditOrder || reservation.canWaiterConfirm) ...[
+                const SizedBox(height: 16),
+                if (reservation.canWaiterEditOrder) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: OutlinedButton.icon(
+                      onPressed: onEditOrder,
+                      icon: const Icon(Icons.edit_rounded, size: 20),
+                      label: Text(t('waiterEditOrderBtn')),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
+                        side: BorderSide(color: theme.colorScheme.primary),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (reservation.canWaiterConfirm) const SizedBox(height: 10),
+                ],
+                if (reservation.canWaiterConfirm)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: FilledButton.icon(
+                      onPressed: isConfirming ? null : onConfirm,
+                      icon: isConfirming
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.colorScheme.onPrimary,
+                              ),
+                            )
+                          : const Icon(Icons.soup_kitchen_rounded, size: 20),
+                      label: Text(t('waiterConfirmBtn')),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: theme.colorScheme.onPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+              if (reservation.canMarkReadyForPayment) ...[
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   height: 46,
                   child: FilledButton.icon(
-                    onPressed: isConfirming ? null : onConfirm,
-                    icon: isConfirming
+                    onPressed: isMarkingReady ? null : onMarkReady,
+                    icon: isMarkingReady
                         ? SizedBox(
                             width: 18,
                             height: 18,
@@ -432,11 +567,11 @@ class _ReservationCard extends StatelessWidget {
                               color: theme.colorScheme.onPrimary,
                             ),
                           )
-                        : const Icon(Icons.soup_kitchen_rounded, size: 20),
-                    label: Text(t('waiterConfirmBtn')),
+                        : const Icon(Icons.payments_rounded, size: 20),
+                    label: Text(t('waiterMarkReadyBtn')),
                     style: FilledButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: theme.colorScheme.onPrimary,
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

@@ -1,13 +1,7 @@
-import 'package:restaurantwaiter/domain/models/customer.dart';
-import 'package:restaurantwaiter/domain/models/customer_profile_data.dart';
+import 'package:restaurantwaiter/domain/models/waiter.dart';
 
 abstract class AuthRepository {
-  Future<Customer> signInWithGoogle();
-
-  Future<Customer> updateProfile(
-    Customer customer,
-    CustomerProfileData profile,
-  );
+  Future<Waiter> signInWithGoogle();
 
   Future<void> signOut();
 }

@@ -1,4 +1,4 @@
-import 'package:restaurantwaiter/domain/models/customer.dart';
+import 'package:restaurantwaiter/domain/models/waiter.dart';
 
 sealed class AuthState {}
 
@@ -7,9 +7,9 @@ class AuthInitial extends AuthState {}
 class AuthLoading extends AuthState {}
 
 class AuthAuthenticated extends AuthState {
-  final Customer customer;
+  final Waiter waiter;
 
-  AuthAuthenticated(this.customer);
+  AuthAuthenticated(this.waiter);
 }
 
 class AuthUnauthenticated extends AuthState {}
