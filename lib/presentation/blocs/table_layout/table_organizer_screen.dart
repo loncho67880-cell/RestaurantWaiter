@@ -35,7 +35,7 @@ class TableOrganizerScreen extends StatelessWidget {
 class _TableOrganizerView extends StatelessWidget {
   const _TableOrganizerView();
 
-  static const double _elementSize = 72;
+  static const double _elementSize = 48;
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +108,7 @@ class _TableOrganizerView extends StatelessWidget {
             children: [
               _Palette(),
               // Floor selector
-              if (maxFloor > 1 || state.allElements.any((e) => e.floor > 1))
+              if (maxFloor > 1 || state.elements.any((e) => e.floor > 1))
                 _FloorSelector(
                   currentFloor: state.selectedFloor,
                   maxFloor: maxFloor,
@@ -127,10 +127,10 @@ class _TableOrganizerView extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: state.floorElements.isEmpty
+                    child: state.canvasElements.isEmpty
                         ? _EmptyCanvasHint()
                         : Stack(
-                            children: state.floorElements
+                            children: state.canvasElements
                                 .map((e) => _DraggableElement(
                                       element: e,
                                       size: _elementSize,
@@ -149,7 +149,6 @@ class _TableOrganizerView extends StatelessWidget {
 
   int _maxFloor(TableLayoutState state) {
     final floors = [
-      ...state.tables.map((t) => t.floor),
       ...state.elements.map((e) => e.floor),
       1,
     ];
@@ -240,23 +239,23 @@ class _Palette extends StatelessWidget {
     ];
 
     return Container(
-      height: 92,
+      height: 68,
       color: theme.colorScheme.surface,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         children: items.map((item) {
           return Padding(
-            padding: const EdgeInsets.only(right: 10),
+            padding: const EdgeInsets.only(right: 8),
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               onTap: () => cubit.addElement(item.type, item.label),
               child: Container(
-                width: 76,
-                padding: const EdgeInsets.all(8),
+                width: 56,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: theme.colorScheme.primary.withValues(alpha: 0.2),
                   ),
@@ -264,13 +263,13 @@ class _Palette extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(item.icon, color: theme.colorScheme.primary),
-                    const SizedBox(height: 4),
+                    Icon(item.icon, color: theme.colorScheme.primary, size: 20),
+                    const SizedBox(height: 2),
                     Text(
                       item.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface),
+                      style: TextStyle(fontSize: 9, color: theme.colorScheme.onSurface),
                     ),
                   ],
                 ),
@@ -440,13 +439,13 @@ class _TableChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.table_restaurant_rounded,
-                color: theme.colorScheme.onPrimary, size: 22),
+                color: theme.colorScheme.onPrimary, size: 16),
             Text(
               label,
               style: TextStyle(
                 color: theme.colorScheme.onPrimary,
                 fontWeight: FontWeight.bold,
-                fontSize: 13,
+                fontSize: 10,
               ),
             ),
           ],
@@ -493,9 +492,9 @@ class _FixtureChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _accentFor(element.type);
     return Container(
-      width: size + 12,
+      width: size + 8,
       height: size,
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(12),
@@ -510,8 +509,8 @@ class _FixtureChip extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(_iconFor(element.type), color: Colors.white, size: 22),
-          const SizedBox(height: 2),
+          Icon(_iconFor(element.type), color: Colors.white, size: 16),
+          const SizedBox(height: 1),
           Text(
             element.label,
             maxLines: 1,
@@ -519,7 +518,7 @@ class _FixtureChip extends StatelessWidget {
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w600,
-              fontSize: 11,
+              fontSize: 9,
             ),
           ),
         ],

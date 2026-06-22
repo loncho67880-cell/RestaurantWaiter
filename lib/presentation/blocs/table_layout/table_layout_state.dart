@@ -30,6 +30,10 @@ class TableLayoutState extends Equatable {
   List<LayoutElement> get floorElements =>
       allElements.where((e) => e.floor == selectedFloor).toList();
 
+  /// Elements placed by the waiter on the canvas (excludes backend tables).
+  List<LayoutElement> get canvasElements =>
+      elements.where((e) => e.floor == selectedFloor).toList();
+
   TableLayoutState copyWith({
     TableLayoutStatus? status,
     String? branchId,
@@ -55,7 +59,10 @@ class TableLayoutState extends Equatable {
         status,
         branchId,
         elements.map((e) => '${e.id}:${e.x}:${e.y}:${e.label}:${e.floor}').join('|'),
-        tables.map((t) => t.tableId).join('|'),
+        tables
+            .map((t) =>
+                '${t.tableId}:${t.positionX}:${t.positionY}:${t.floor}')
+            .join('|'),
         selectedFloor,
         saving,
         dirty,
