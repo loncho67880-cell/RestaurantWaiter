@@ -182,17 +182,36 @@
   "manualOrderSubmitError": "Could not create the order. Please try again.",
   "manualOrderEmptyError": "Add at least one dish to the order.",
 
-  "tableOrganizerTitle": "Organize floor",
+  "tableOrganizerTitle": "Configure tables",
   "tableOrganizerSave": "Save",
   "tableOrganizerSaved": "Layout saved.",
   "tableOrganizerSaveError": "Could not save the layout.",
   "tableOrganizerAddTable": "Table",
+  "tableOrganizerAddFloor": "Floor",
   "tableElementEntrance": "Entrance",
+  "tableElementExit": "Exit",
+  "tableElementReception": "Reception",
   "tableElementRestroom": "Restroom",
   "tableElementBar": "Bar",
   "tableElementKitchen": "Kitchen",
+  "tableElementStairs": "Stairs",
+  "tableElementElevator": "Elevator",
+  "tableElementCounter": "Counter",
   "tableOrganizerEmptyHint": "Tap a palette item to add it, then drag to position it.",
   "tableOrganizerLabel": "Label",
   "tableOrganizerDelete": "Delete",
-  "tableOrganizerApply": "Apply"
+  "tableOrganizerApply": "Apply",
+
+  "navReservations": "Reservations",
+  "navConfigTables": "Tables",
+  "navReadyToPay": "Ready to pay",
+
+  "readyToPayTitle": "Ready to pay",
+  "readyToPayBadge": "Ready to pay",
+  "readyToPayMarkBtn": "Mark as paid",
+  "readyToPayMarking": "Processing...",
+  "readyToPayMarkSuccess": "Marked as paid.",
+  "readyToPayMarkError": "Could not mark as paid. Please try again.",
+  "readyToPayEmpty": "No tables waiting for payment right now.",
+  "totalLabel": "Total: {total}"
 }

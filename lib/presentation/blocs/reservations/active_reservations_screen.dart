@@ -6,6 +6,7 @@ import 'package:restaurantwaiter/domain/repositories/reservation_repository.dart
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
+import 'package:restaurantwaiter/presentation/blocs/manual_order/manual_order_screen.dart';
 import 'package:restaurantwaiter/presentation/blocs/reservations/edit_reservation_order_screen.dart';
 import 'package:restaurantwaiter/presentation/blocs/reservations/waiter_reservations_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/reservations/waiter_reservations_state.dart';
@@ -76,7 +77,7 @@ class _ActiveReservationsView extends StatelessWidget {
           ),
         ],
       ),
-      drawer: const _WaiterDrawer(),
+      drawer: _WaiterDrawer(onManualOrder: () => _openManualOrder(context)),
       body: BlocBuilder<WaiterReservationsCubit, WaiterReservationsState>(
         builder: (context, state) {
           switch (state.status) {
@@ -128,7 +129,7 @@ class _ActiveReservationsView extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: theme.colorScheme.onPrimary,
-        onPressed: () => Navigator.pushNamed(context, '/manual-order'),
+        onPressed: () => _openManualOrder(context),
         icon: const Icon(Icons.add_rounded),
         label: Text(t('manualOrderTitle')),
       ),
@@ -185,6 +186,18 @@ class _ActiveReservationsView extends StatelessWidget {
     }
   }
 
+  Future<void> _openManualOrder(BuildContext context) async {
+    final created = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ManualOrderScreen(),
+      ),
+    );
+    if (created == true && context.mounted) {
+      await context.read<WaiterReservationsCubit>().load();
+    }
+  }
+
   Future<void> _editOrder(BuildContext context, Reservation reservation) async {
     final updated = await Navigator.push<Reservation>(
       context,
@@ -199,7 +212,9 @@ class _ActiveReservationsView extends StatelessWidget {
 }
 
 class _WaiterDrawer extends StatelessWidget {
-  const _WaiterDrawer();
+  final Future<void> Function() onManualOrder;
+
+  const _WaiterDrawer({required this.onManualOrder});
 
   @override
   Widget build(BuildContext context) {
@@ -267,18 +282,9 @@ class _WaiterDrawer extends StatelessWidget {
               leading:
                   Icon(Icons.restaurant_rounded, color: theme.colorScheme.primary),
               title: Text(t('manualOrderTitle')),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/manual-order');
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.grid_view_rounded,
-                  color: theme.colorScheme.primary),
-              title: Text(t('tableOrganizerTitle')),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/table-organizer');
+                await onManualOrder();
               },
             ),
           ],

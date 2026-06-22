@@ -151,7 +151,7 @@
   "logout": "Cerrar sesión",
 
   "waiterHomeTitle": "Reservas activas",
-  "waiterHomeSubtitle": "Estas son las reservas activas de la establecimiento. Confirma para enviar a cocina.",
+  "waiterHomeSubtitle": "Estas son las reservas activas de el establecimiento. Confirma para enviar a cocina.",
   "waiterRefresh": "Actualizar",
   "waiterRetry": "Reintentar",
   "waiterNoReservations": "No hay reservas activas en este momento.",
@@ -182,17 +182,36 @@
   "manualOrderSubmitError": "No se pudo crear el pedido. Intenta de nuevo.",
   "manualOrderEmptyError": "Agrega al menos un plato al pedido.",
 
-  "tableOrganizerTitle": "Organizar salón",
+  "tableOrganizerTitle": "Configurar mesas",
   "tableOrganizerSave": "Guardar",
   "tableOrganizerSaved": "Distribución guardada.",
   "tableOrganizerSaveError": "No se pudo guardar la distribución.",
   "tableOrganizerAddTable": "Mesa",
+  "tableOrganizerAddFloor": "Piso",
   "tableElementEntrance": "Entrada",
+  "tableElementExit": "Salida",
+  "tableElementReception": "Recepción",
   "tableElementRestroom": "Baño",
   "tableElementBar": "Bar",
   "tableElementKitchen": "Cocina",
+  "tableElementStairs": "Escaleras",
+  "tableElementElevator": "Ascensor",
+  "tableElementCounter": "Mostrador",
   "tableOrganizerEmptyHint": "Toca un elemento de la paleta para agregarlo y arrástralo para ubicarlo.",
   "tableOrganizerLabel": "Etiqueta",
   "tableOrganizerDelete": "Eliminar",
-  "tableOrganizerApply": "Aplicar"
+  "tableOrganizerApply": "Aplicar",
+
+  "navReservations": "Reservas",
+  "navConfigTables": "Mesas",
+  "navReadyToPay": "Por pagar",
+
+  "readyToPayTitle": "Listos para pagar",
+  "readyToPayBadge": "Listo para pagar",
+  "readyToPayMarkBtn": "Marcar como pagado",
+  "readyToPayMarking": "Procesando...",
+  "readyToPayMarkSuccess": "Marcado como pagado.",
+  "readyToPayMarkError": "No se pudo marcar como pagado. Intenta de nuevo.",
+  "readyToPayEmpty": "No hay mesas esperando pago en este momento.",
+  "totalLabel": "Total: {total}"
 }

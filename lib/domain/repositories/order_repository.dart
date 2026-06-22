@@ -1,4 +1,5 @@
 import '../models/manual_order.dart';
+import '../models/reservation.dart';
 import '../models/table_model.dart';
 
 abstract class OrderRepository {
@@ -12,6 +13,18 @@ abstract class OrderRepository {
   /// Submits a manual (walk-in) order for a table without a reservation.
   Future<void> createManualOrder({
     required ManualOrder order,
+    required String accessToken,
+  });
+
+  /// Returns reservations in "ListoParaPagar" (ready for payment) state.
+  Future<List<Reservation>> getReadyForPayment({
+    required String branchId,
+    required String accessToken,
+  });
+
+  /// Cashier marks a reservation as paid.
+  Future<Reservation> markAsPaidByWaiter({
+    required String reservationId,
     required String accessToken,
   });
 }

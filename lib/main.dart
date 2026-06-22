@@ -20,8 +20,7 @@ import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/login_screen.dart';
 import 'package:restaurantwaiter/presentation/blocs/branch_selection/branch_selection_screen.dart';
 import 'package:restaurantwaiter/presentation/blocs/manual_order/manual_order_screen.dart';
-import 'package:restaurantwaiter/presentation/blocs/reservations/active_reservations_screen.dart';
-import 'package:restaurantwaiter/presentation/blocs/table_layout/table_organizer_screen.dart';
+import 'package:restaurantwaiter/presentation/shell/main_shell.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -43,6 +42,8 @@ Future<void> main() async {
   final dio = Dio(
     BaseOptions(
       baseUrl: appSettings.apiBaseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
       headers: {
         'Accept': 'application/json',
         'ngrok-skip-browser-warning': 'true',
@@ -59,7 +60,7 @@ Future<void> main() async {
   final branchRepository = BranchRepositoryImpl(dio: dio);
   final reservationRepository = ReservationRepositoryImpl(dio: dio);
   final orderRepository = OrderRepositoryImpl(dio: dio);
-  final tableLayoutRepository = TableLayoutRepositoryImpl();
+  final tableLayoutRepository = TableLayoutRepositoryImpl(dio: dio);
 
   runApp(
     MyApp(
@@ -111,10 +112,10 @@ class MyApp extends StatelessWidget {
           BlocProvider(create: (_) => AuthCubit(authRepository)),
         ],
         child: BlocBuilder<AppConfigCubit, AppConfigState>(
-          builder: (context, state) {
+          builder: (context, appConfigState) {
             final currentTheme = RestaurantTheme(
-              name: state.restaurantName.isNotEmpty
-                  ? state.restaurantName
+              name: appConfigState.restaurantName.isNotEmpty
+                  ? appConfigState.restaurantName
                   : 'Kiosco',
               primary: RestaurantTheme.fromHex('#FF5722'),
               background: RestaurantTheme.fromHex('#F5F5F5'),
@@ -127,14 +128,13 @@ class MyApp extends StatelessWidget {
               navigatorKey: appNavigatorKey,
               title: currentTheme.name,
               debugShowCheckedModeBanner: false,
-              theme: state.themeData,
+              theme: appConfigState.themeData,
               home: LoginScreen(themeData: currentTheme),
               routes: {
                 '/login': (context) => LoginScreen(themeData: currentTheme),
                 '/branch-select': (context) => const BranchSelectionScreen(),
-                '/home': (context) => const ActiveReservationsScreen(),
+                '/home': (context) => const MainShell(),
                 '/manual-order': (context) => const ManualOrderScreen(),
-                '/table-organizer': (context) => const TableOrganizerScreen(),
               },
             );
           },

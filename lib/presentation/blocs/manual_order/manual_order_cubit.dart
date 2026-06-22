@@ -1,9 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:restaurantwaiter/domain/models/category_menu.dart';
 import 'package:restaurantwaiter/domain/models/dish.dart';
 import 'package:restaurantwaiter/domain/models/manual_order.dart';
 import 'package:restaurantwaiter/domain/models/reservation_item.dart';
-import 'package:restaurantwaiter/domain/models/table_model.dart';
 import 'package:restaurantwaiter/domain/repositories/order_repository.dart';
 import 'package:restaurantwaiter/infrastructure/repositories/menu_repository.dart';
 
@@ -29,34 +28,50 @@ class ManualOrderCubit extends Cubit<ManualOrderState> {
   Future<void> loadMenu() async {
     emit(state.copyWith(status: ManualOrderStatus.loading));
     try {
-      final results = await Future.wait([
-        menuRepository.loadCategories(
-          localeCode,
-          restaurantId,
-          branchId,
-          accessToken,
-        ),
-        orderRepository.getAvailableTables(
-          branchId: branchId,
-          accessToken: accessToken,
-        ),
-      ]);
-
-      final categories = results[0] as List<CategoryMenu>;
-      final tables = results[1] as List<TableModel>;
+      final categories = await menuRepository.loadCategories(
+        localeCode,
+        restaurantId,
+        branchId,
+        accessToken,
+      );
 
       if (categories.isEmpty) {
         emit(state.copyWith(status: ManualOrderStatus.error));
         return;
       }
+
+      // Show the menu as soon as the catalog is ready. Tables are loaded
+      // separately because the availability endpoint can be slow or fail
+      // (e.g. outside branch hours) without blocking the whole screen.
       emit(state.copyWith(
         status: ManualOrderStatus.loaded,
         categories: categories,
         selectedCategoryId: categories.first.id,
-        tables: tables,
+        tables: const [],
       ));
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('ManualOrder loadMenu failed: $e\n$stack');
       emit(state.copyWith(status: ManualOrderStatus.error));
+      return;
+    }
+
+    await _loadTables();
+  }
+
+  Future<void> _loadTables() async {
+    try {
+      final tables = await orderRepository.getAvailableTables(
+        branchId: branchId,
+        accessToken: accessToken,
+      );
+      if (isClosed) return;
+      emit(state.copyWith(
+        tables: tables,
+        selectedTableId:
+            state.selectedTableId ?? (tables.isNotEmpty ? tables.first.tableId : null),
+      ));
+    } catch (e, stack) {
+      debugPrint('ManualOrder loadTables failed: $e\n$stack');
     }
   }
 
@@ -72,7 +87,13 @@ class ManualOrderCubit extends Cubit<ManualOrderState> {
     final cart = Map<String, ReservationItem>.from(state.cart);
     final existing = cart[dish.id];
     if (existing != null) {
-      existing.quantity += 1;
+      cart[dish.id] = ReservationItem(
+        dishId: existing.dishId,
+        dishName: existing.dishName,
+        quantity: existing.quantity + 1,
+        unitPrice: existing.unitPrice,
+        additions: existing.additions,
+      );
     } else {
       cart[dish.id] = ReservationItem(
         dishId: dish.id,
@@ -91,12 +112,16 @@ class ManualOrderCubit extends Cubit<ManualOrderState> {
     if (existing.quantity <= 1) {
       cart.remove(dishId);
     } else {
-      existing.quantity -= 1;
+      cart[dishId] = ReservationItem(
+        dishId: existing.dishId,
+        dishName: existing.dishName,
+        quantity: existing.quantity - 1,
+        unitPrice: existing.unitPrice,
+        additions: existing.additions,
+      );
     }
     emit(state.copyWith(cart: cart));
   }
-
-  int quantityOf(String dishId) => state.cart[dishId]?.quantity ?? 0;
 
   /// Returns null on success, or an error i18n key on failure.
   Future<String?> submit({

@@ -79,7 +79,7 @@ class _ManualOrderViewState extends State<_ManualOrderView> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      navigator.pop();
+      navigator.pop(true);
     } else {
       messenger.showSnackBar(
         SnackBar(
@@ -190,9 +190,7 @@ class _ManualOrderViewState extends State<_ManualOrderView> {
                         final dish = category.dishes[index];
                         return _DishCard(
                           dish: dish,
-                          quantity: context
-                              .read<ManualOrderCubit>()
-                              .quantityOf(dish.id),
+                          quantity: state.cart[dish.id]?.quantity ?? 0,
                         );
                       },
                       childCount: category.dishes.length,
