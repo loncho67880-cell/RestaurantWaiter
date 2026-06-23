@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:restaurantwaiter/core/utils/guid_utils.dart';
 import 'package:restaurantwaiter/domain/models/table_layout.dart';
 import 'package:restaurantwaiter/domain/repositories/table_layout_repository.dart';
 
@@ -8,6 +9,8 @@ class TableLayoutCubit extends Cubit<TableLayoutState> {
   final TableLayoutRepository repository;
   final String branchId;
   final String accessToken;
+
+  static const double _canvas = 1000.0;
 
   TableLayoutCubit({
     required this.repository,
@@ -27,6 +30,7 @@ class TableLayoutCubit extends Cubit<TableLayoutState> {
         branchId: branchId,
         tables: layout.tables,
         elements: layout.elements,
+        floorCount: _floorCountFrom(layout.tables, layout.elements),
         dirty: false,
       ));
     } catch (_) {
@@ -36,15 +40,21 @@ class TableLayoutCubit extends Cubit<TableLayoutState> {
 
   void selectFloor(int floor) => emit(state.copyWith(selectedFloor: floor));
 
+  void addFloor() {
+    final next = state.floorCount + 1;
+    emit(state.copyWith(floorCount: next, selectedFloor: next));
+  }
+
   void addElement(LayoutElementType type, String defaultLabel) {
-    final id = DateTime.now().microsecondsSinceEpoch.toString();
-    final label = type == LayoutElementType.table
-        ? _nextTableLabel()
-        : defaultLabel;
+    if (type == LayoutElementType.table) {
+      _addTable();
+      return;
+    }
+
     final element = LayoutElement(
-      id: id,
+      id: generateGuidV4(),
       type: type,
-      label: label,
+      label: defaultLabel,
       floor: state.selectedFloor,
       x: 24,
       y: 24,
@@ -55,26 +65,41 @@ class TableLayoutCubit extends Cubit<TableLayoutState> {
     ));
   }
 
+  void _addTable() {
+    final table = LayoutTable(
+      tableId: generateGuidV4(),
+      layoutElementId: generateGuidV4(),
+      tableNumber: _nextTableNumber(),
+      floor: state.selectedFloor,
+      x: 24,
+      y: 24,
+      isPending: true,
+    );
+    emit(state.copyWith(
+      tables: [...state.tables, table],
+      dirty: true,
+    ));
+  }
+
   void moveElement(String id, double dx, double dy) {
-    // Check tables first
-    final tableMatch = state.tables.where((t) => t.tableId == id).cast<LayoutTable?>().firstOrNull;
-    if (tableMatch != null) {
-      final canvas = 1000.0;
-      final updated = state.allElements.map((e) {
-        if (e.id != id) return e;
-        final nx = (e.x + dx).clamp(0.0, canvas);
-        final ny = (e.y + dy).clamp(0.0, canvas);
-        return e.copyWith(x: nx, y: ny);
-      }).toList();
-      // Re-split back into tables+elements
-      _emitFromAllElements(updated);
+    final tableIndex = state.tables.indexWhere((t) => t.tableId == id);
+    if (tableIndex >= 0) {
+      final table = state.tables[tableIndex];
+      final tables = [...state.tables];
+      tables[tableIndex] = table.copyWith(
+        x: (table.x + dx).clamp(0.0, _canvas),
+        y: (table.y + dy).clamp(0.0, _canvas),
+      );
+      emit(state.copyWith(tables: tables, dirty: true));
       return;
     }
+
     final elements = state.elements.map((e) {
       if (e.id != id) return e;
-      final nx = (e.x + dx).clamp(0.0, double.infinity);
-      final ny = (e.y + dy).clamp(0.0, double.infinity);
-      return e.copyWith(x: nx, y: ny);
+      return e.copyWith(
+        x: (e.x + dx).clamp(0.0, double.infinity),
+        y: (e.y + dy).clamp(0.0, double.infinity),
+      );
     }).toList();
     emit(state.copyWith(elements: elements, dirty: true));
   }
@@ -86,31 +111,33 @@ class TableLayoutCubit extends Cubit<TableLayoutState> {
     emit(state.copyWith(elements: elements, dirty: true));
   }
 
-  void removeElement(String id) {
-    final elements = state.elements.where((e) => e.id != id).toList();
-    emit(state.copyWith(elements: elements, dirty: true));
+  void updateTable(String id, {int? tableNumber, int? capacity}) {
+    final tableIndex = state.tables.indexWhere((t) => t.tableId == id);
+    if (tableIndex < 0) return;
+
+    final tables = [...state.tables];
+    tables[tableIndex] = tables[tableIndex].copyWith(
+      tableNumber: tableNumber,
+      capacity: capacity,
+    );
+    emit(state.copyWith(tables: tables, dirty: true));
   }
 
-  void _emitFromAllElements(List<LayoutElement> all) {
-    final tableIds = {for (final t in state.tables) t.tableId};
-    final tableElements = all.where((e) => tableIds.contains(e.id)).toList();
-    final decorElements = all.where((e) => !tableIds.contains(e.id)).toList();
+  void removeElement(String id) {
+    final table = state.tables.where((t) => t.tableId == id).firstOrNull;
+    if (table != null) {
+      if (!table.isPending) return;
+      emit(state.copyWith(
+        tables: state.tables.where((t) => t.tableId != id).toList(),
+        dirty: true,
+      ));
+      return;
+    }
 
-    final updatedTables = state.tables.map((t) {
-      final match = tableElements.where((e) => e.id == t.tableId).cast<LayoutElement?>().firstOrNull;
-      if (match == null) return t;
-      return LayoutTable(
-        tableId: t.tableId,
-        tableNumber: t.tableNumber,
-        floor: match.floor,
-        capacity: t.capacity,
-        positionX: match.x / 1000,
-        positionY: match.y / 1000,
-        shape: t.shape,
-      );
-    }).toList();
-
-    emit(state.copyWith(tables: updatedTables, elements: decorElements, dirty: true));
+    emit(state.copyWith(
+      elements: state.elements.where((e) => e.id != id).toList(),
+      dirty: true,
+    ));
   }
 
   Future<bool> save() async {
@@ -132,9 +159,20 @@ class TableLayoutCubit extends Cubit<TableLayoutState> {
     }
   }
 
-  String _nextTableLabel() {
-    final tableCount =
-        state.elements.where((e) => e.isTable).length;
-    return '${tableCount + 1}';
+  int _nextTableNumber() {
+    if (state.tables.isEmpty) return 1;
+    return state.tables
+            .map((t) => t.tableNumber)
+            .reduce((a, b) => a > b ? a : b) +
+        1;
+  }
+
+  int _floorCountFrom(List<LayoutTable> tables, List<LayoutElement> elements) {
+    final floors = [
+      ...tables.map((t) => t.floor),
+      ...elements.map((e) => e.floor),
+      1,
+    ];
+    return floors.reduce((a, b) => a > b ? a : b);
   }
 }

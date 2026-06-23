@@ -102,19 +102,17 @@ class _TableOrganizerView extends StatelessWidget {
             );
           }
 
-          final maxFloor = _maxFloor(state);
-
           return Column(
             children: [
               _Palette(),
-              // Floor selector
-              if (maxFloor > 1 || state.elements.any((e) => e.floor > 1))
-                _FloorSelector(
-                  currentFloor: state.selectedFloor,
-                  maxFloor: maxFloor,
-                  onFloorChanged: (f) =>
-                      context.read<TableLayoutCubit>().selectFloor(f),
-                ),
+              _FloorSelector(
+                currentFloor: state.selectedFloor,
+                floorCount: state.floorCount,
+                onFloorChanged: (f) =>
+                    context.read<TableLayoutCubit>().selectFloor(f),
+                onAddFloor: () =>
+                    context.read<TableLayoutCubit>().addFloor(),
+              ),
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.all(12),
@@ -127,12 +125,17 @@ class _TableOrganizerView extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: state.canvasElements.isEmpty
+                    child: state.floorElements.isEmpty
                         ? _EmptyCanvasHint()
                         : Stack(
-                            children: state.canvasElements
+                            children: state.floorElements
                                 .map((e) => _DraggableElement(
                                       element: e,
+                                      table: e.isTable
+                                          ? state.tables
+                                              .where((t) => t.tableId == e.id)
+                                              .firstOrNull
+                                          : null,
                                       size: _elementSize,
                                     ))
                                 .toList(),
@@ -145,14 +148,6 @@ class _TableOrganizerView extends StatelessWidget {
         },
       ),
     );
-  }
-
-  int _maxFloor(TableLayoutState state) {
-    final floors = [
-      ...state.elements.map((e) => e.floor),
-      1,
-    ];
-    return floors.reduce((a, b) => a > b ? a : b);
   }
 
   Future<void> _save(BuildContext context) async {
@@ -172,13 +167,15 @@ class _TableOrganizerView extends StatelessWidget {
 
 class _FloorSelector extends StatelessWidget {
   final int currentFloor;
-  final int maxFloor;
+  final int floorCount;
   final ValueChanged<int> onFloorChanged;
+  final VoidCallback onAddFloor;
 
   const _FloorSelector({
     required this.currentFloor,
-    required this.maxFloor,
+    required this.floorCount,
     required this.onFloorChanged,
+    required this.onAddFloor,
   });
 
   @override
@@ -193,7 +190,7 @@ class _FloorSelector extends StatelessWidget {
           Text(t('floor'), style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(width: 12),
           ...List.generate(
-            maxFloor + 1,
+            floorCount,
             (i) {
               final f = i + 1;
               return Padding(
@@ -208,7 +205,7 @@ class _FloorSelector extends StatelessWidget {
           ),
           const Spacer(),
           TextButton.icon(
-            onPressed: () => onFloorChanged(maxFloor + 1),
+            onPressed: onAddFloor,
             icon: const Icon(Icons.add_rounded),
             label: Text(t('tableOrganizerAddFloor')),
           ),
@@ -320,9 +317,14 @@ class _EmptyCanvasHint extends StatelessWidget {
 
 class _DraggableElement extends StatelessWidget {
   final LayoutElement element;
+  final LayoutTable? table;
   final double size;
 
-  const _DraggableElement({required this.element, required this.size});
+  const _DraggableElement({
+    required this.element,
+    this.table,
+    required this.size,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -333,90 +335,291 @@ class _DraggableElement extends StatelessWidget {
       left: element.x,
       top: element.y,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onPanUpdate: (details) =>
             cubit.moveElement(element.id, details.delta.dx, details.delta.dy),
         onTap: () => _showElementSheet(context),
         child: element.isTable
-            ? _TableChip(label: element.label, size: size, theme: theme)
+            ? _TableChip(
+                tableNumber: table?.tableNumber ?? int.tryParse(element.label) ?? 0,
+                capacity: table?.capacity ?? 4,
+                size: size,
+                theme: theme,
+              )
             : _FixtureChip(element: element, size: size, theme: theme),
       ),
     );
   }
 
-  Future<void> _showElementSheet(BuildContext context) async {
-    final t = context.read<AppConfigCubit>().translate;
+  void _showElementSheet(BuildContext context) {
     final cubit = context.read<TableLayoutCubit>();
-    final controller = TextEditingController(text: element.label);
-    // Tables from DB cannot be deleted from the canvas editor
-    final isDatabaseTable = cubit.state.tables.any((tb) => tb.tableId == element.id);
+    final table =
+        cubit.state.tables.where((t) => t.tableId == element.id).firstOrNull;
 
-    await showModalBottomSheet<void>(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (sheetContext) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20, right: 20, top: 20,
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  labelText: t('tableOrganizerLabel'),
-                  border: const OutlineInputBorder(),
-                ),
+      enableDrag: false,
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: table != null
+            ? _TableEditSheet(
+                tableId: table.tableId,
+                initialTableNumber: table.tableNumber,
+                initialCapacity: table.capacity,
+                canDelete: table.isPending,
+              )
+            : _ElementLabelSheet(
+                elementId: element.id,
+                initialLabel: element.label,
+                canDelete: true,
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  if (!isDatabaseTable)
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          cubit.removeElement(element.id);
-                          Navigator.pop(sheetContext);
-                        },
-                        icon: const Icon(Icons.delete_outline_rounded),
-                        label: Text(t('tableOrganizerDelete')),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Theme.of(sheetContext).colorScheme.error,
-                        ),
+      ),
+    );
+  }
+}
+
+class _ElementLabelSheet extends StatefulWidget {
+  final String elementId;
+  final String initialLabel;
+  final bool canDelete;
+
+  const _ElementLabelSheet({
+    required this.elementId,
+    required this.initialLabel,
+    required this.canDelete,
+  });
+
+  @override
+  State<_ElementLabelSheet> createState() => _ElementLabelSheetState();
+}
+
+class _ElementLabelSheetState extends State<_ElementLabelSheet> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialLabel);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _apply() {
+    context
+        .read<TableLayoutCubit>()
+        .renameElement(widget.elementId, _controller.text.trim());
+    Navigator.pop(context);
+  }
+
+  void _delete() {
+    context.read<TableLayoutCubit>().removeElement(widget.elementId);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.read<AppConfigCubit>().translate;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: bottomInset + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _apply(),
+              decoration: InputDecoration(
+                labelText: t('tableOrganizerLabel'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                if (widget.canDelete)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _delete,
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      label: Text(t('tableOrganizerDelete')),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor:
+                            Theme.of(context).colorScheme.error,
                       ),
                     ),
-                  if (!isDatabaseTable) const SizedBox(width: 12),
+                  ),
+                if (widget.canDelete) const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _apply,
+                    icon: const Icon(Icons.check_rounded),
+                    label: Text(t('tableOrganizerApply')),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TableEditSheet extends StatefulWidget {
+  final String tableId;
+  final int initialTableNumber;
+  final int initialCapacity;
+  final bool canDelete;
+
+  const _TableEditSheet({
+    required this.tableId,
+    required this.initialTableNumber,
+    required this.initialCapacity,
+    required this.canDelete,
+  });
+
+  @override
+  State<_TableEditSheet> createState() => _TableEditSheetState();
+}
+
+class _TableEditSheetState extends State<_TableEditSheet> {
+  late final TextEditingController _numberController;
+  late final TextEditingController _capacityController;
+
+  @override
+  void initState() {
+    super.initState();
+    _numberController =
+        TextEditingController(text: '${widget.initialTableNumber}');
+    _capacityController =
+        TextEditingController(text: '${widget.initialCapacity}');
+  }
+
+  @override
+  void dispose() {
+    _numberController.dispose();
+    _capacityController.dispose();
+    super.dispose();
+  }
+
+  void _apply() {
+    final number = int.tryParse(_numberController.text.trim());
+    final capacity = int.tryParse(_capacityController.text.trim());
+    if (number == null || number < 1 || capacity == null || capacity < 1) {
+      return;
+    }
+    context.read<TableLayoutCubit>().updateTable(
+          widget.tableId,
+          tableNumber: number,
+          capacity: capacity,
+        );
+    Navigator.pop(context);
+  }
+
+  void _delete() {
+    context.read<TableLayoutCubit>().removeElement(widget.tableId);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.read<AppConfigCubit>().translate;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: bottomInset + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _numberController,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: t('tableOrganizerTableNumber'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _capacityController,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _apply(),
+              decoration: InputDecoration(
+                labelText: t('tableOrganizerCapacity'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                if (widget.canDelete)
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        cubit.renameElement(element.id, controller.text.trim());
-                        Navigator.pop(sheetContext);
-                      },
-                      icon: const Icon(Icons.check_rounded),
-                      label: Text(t('tableOrganizerApply')),
+                    child: OutlinedButton.icon(
+                      onPressed: _delete,
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      label: Text(t('tableOrganizerDelete')),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor:
+                            Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
+                if (widget.canDelete) const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _apply,
+                    icon: const Icon(Icons.check_rounded),
+                    label: Text(t('tableOrganizerApply')),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
-    controller.dispose();
   }
 }
 
 // ── Chips ─────────────────────────────────────────────────────────────────────
 
 class _TableChip extends StatelessWidget {
-  final String label;
+  final int tableNumber;
+  final int capacity;
   final double size;
   final ThemeData theme;
 
-  const _TableChip({required this.label, required this.size, required this.theme});
+  const _TableChip({
+    required this.tableNumber,
+    required this.capacity,
+    required this.size,
+    required this.theme,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -441,11 +644,18 @@ class _TableChip extends StatelessWidget {
             Icon(Icons.table_restaurant_rounded,
                 color: theme.colorScheme.onPrimary, size: 16),
             Text(
-              label,
+              '$tableNumber',
               style: TextStyle(
                 color: theme.colorScheme.onPrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 10,
+              ),
+            ),
+            Text(
+              '${capacity}p',
+              style: TextStyle(
+                color: theme.colorScheme.onPrimary.withValues(alpha: 0.85),
+                fontSize: 8,
               ),
             ),
           ],

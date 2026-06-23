@@ -187,7 +187,7 @@
   "tableOrganizerSaved": "Distribución guardada.",
   "tableOrganizerSaveError": "No se pudo guardar la distribución.",
   "tableOrganizerAddTable": "Mesa",
-  "tableOrganizerAddFloor": "Piso",
+  "tableOrganizerAddFloor": "Agregar piso",
   "tableElementEntrance": "Entrada",
   "tableElementExit": "Salida",
   "tableElementReception": "Recepción",
@@ -201,6 +201,8 @@
   "tableOrganizerLabel": "Etiqueta",
   "tableOrganizerDelete": "Eliminar",
   "tableOrganizerApply": "Aplicar",
+  "tableOrganizerTableNumber": "Número de mesa",
+  "tableOrganizerCapacity": "Capacidad (personas)",
 
   "navReservations": "Reservas",
   "navConfigTables": "Mesas",

@@ -15,11 +15,11 @@ enum LayoutElementType {
 LayoutElementType _typeFromString(String? value) {
   return LayoutElementType.values.firstWhere(
     (t) => t.name == value,
-    orElse: () => LayoutElementType.table,
+    orElse: () => LayoutElementType.entrance,
   );
 }
 
-/// A single positioned element on the salon canvas.
+/// A decorative/structural element on the salon canvas (never type = table).
 class LayoutElement {
   final String id;
   final LayoutElementType type;
@@ -39,7 +39,12 @@ class LayoutElement {
 
   bool get isTable => type == LayoutElementType.table;
 
-  LayoutElement copyWith({String? label, int? floor, double? x, double? y}) =>
+  LayoutElement copyWith({
+    String? label,
+    int? floor,
+    double? x,
+    double? y,
+  }) =>
       LayoutElement(
         id: id,
         type: type,
@@ -63,60 +68,101 @@ class LayoutElement {
         type: _typeFromString((json['type'] ?? json['Type']) as String?),
         label: (json['label'] ?? json['Label']) as String? ?? '',
         floor: (json['floor'] ?? json['Floor'] as num?)?.toInt() ?? 1,
-        x: ((json['x'] ?? json['X']) as num).toDouble(),
-        y: ((json['y'] ?? json['Y']) as num).toDouble(),
+        x: ((json['x'] ?? json['X']) as num?)?.toDouble() ?? 0,
+        y: ((json['y'] ?? json['Y']) as num?)?.toDouble() ?? 0,
       );
 }
 
-/// A table entry within the layout (from backend).
+/// Business table data; canvas position/shape live on the linked layout element.
 class LayoutTable {
   final String tableId;
+  final String layoutElementId;
   final int tableNumber;
   final int floor;
   final int capacity;
-  final double positionX;
-  final double positionY;
+  double x;
+  double y;
   final String shape;
+  final bool isPending;
 
-  const LayoutTable({
+  LayoutTable({
     required this.tableId,
+    required this.layoutElementId,
     required this.tableNumber,
     required this.floor,
-    required this.capacity,
-    required this.positionX,
-    required this.positionY,
-    required this.shape,
+    this.capacity = 4,
+    required this.x,
+    required this.y,
+    this.shape = 'circle',
+    this.isPending = false,
   });
 
   factory LayoutTable.fromJson(Map<String, dynamic> json) => LayoutTable(
         tableId: (json['tableId'] ?? json['TableId'])?.toString() ?? '',
+        layoutElementId:
+            (json['layoutElementId'] ?? json['LayoutElementId'])?.toString() ??
+                '',
         tableNumber:
             (json['tableNumber'] ?? json['TableNumber'] as num?)?.toInt() ?? 0,
         floor: (json['floor'] ?? json['Floor'] as num?)?.toInt() ?? 1,
         capacity:
-            (json['capacity'] ?? json['Capacity'] as num?)?.toInt() ?? 0,
-        positionX:
-            ((json['positionX'] ?? json['PositionX']) as num).toDouble(),
-        positionY:
-            ((json['positionY'] ?? json['PositionY']) as num).toDouble(),
+            (json['capacity'] ?? json['Capacity'] as num?)?.toInt() ?? 4,
+        x: ((json['x'] ??
+                    json['positionX'] ??
+                    json['PositionX']) as num?)
+                ?.toDouble() ??
+            0,
+        y: ((json['y'] ??
+                    json['positionY'] ??
+                    json['PositionY']) as num?)
+                ?.toDouble() ??
+            0,
         shape: (json['shape'] ?? json['Shape']) as String? ?? 'circle',
+        isPending: json['isPending'] as bool? ?? false,
       );
 
   Map<String, dynamic> toJson() => {
         'tableId': tableId,
+        'layoutElementId': layoutElementId,
+        'tableNumber': tableNumber,
         'floor': floor,
-        'positionX': positionX,
-        'positionY': positionY,
+        'capacity': capacity,
+        'x': x,
+        'y': y,
         'shape': shape,
+        'isPending': isPending,
       };
 
+  LayoutTable copyWith({
+    String? layoutElementId,
+    int? tableNumber,
+    int? floor,
+    int? capacity,
+    double? x,
+    double? y,
+    String? shape,
+    bool? isPending,
+  }) =>
+      LayoutTable(
+        tableId: tableId,
+        layoutElementId: layoutElementId ?? this.layoutElementId,
+        tableNumber: tableNumber ?? this.tableNumber,
+        floor: floor ?? this.floor,
+        capacity: capacity ?? this.capacity,
+        x: x ?? this.x,
+        y: y ?? this.y,
+        shape: shape ?? this.shape,
+        isPending: isPending ?? this.isPending,
+      );
+
+  /// Canvas representation for the organizer (position/shape from layout element).
   LayoutElement toElement() => LayoutElement(
         id: tableId,
         type: LayoutElementType.table,
         label: '$tableNumber',
         floor: floor,
-        x: positionX * 1000,
-        y: positionY * 1000,
+        x: x,
+        y: y,
       );
 }
 
@@ -132,7 +178,6 @@ class TableLayout {
     required this.elements,
   });
 
-  /// Flat list: tables converted to LayoutElement + decorative elements.
   List<LayoutElement> get allElements => [
         ...tables.map((t) => t.toElement()),
         ...elements,
@@ -150,6 +195,7 @@ class TableLayout {
         .toList();
     final elementList = (json['elements'] as List<dynamic>? ?? [])
         .map((e) => LayoutElement.fromJson(e as Map<String, dynamic>))
+        .where((e) => !e.isTable)
         .toList();
     return TableLayout(
       branchId: json['branchId'] as String? ?? '',
@@ -158,13 +204,28 @@ class TableLayout {
     );
   }
 
-  /// Legacy constructor used by SharedPreferences fallback (elements-only JSON).
-  static TableLayout fromLegacyJson(String branchId, List<dynamic> elements) =>
-      TableLayout(
-        branchId: branchId,
-        tables: const [],
-        elements: elements
-            .map((e) => LayoutElement.fromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
+  /// Legacy cache: elements-only JSON; table-type rows become [LayoutTable].
+  static TableLayout fromLegacyJson(String branchId, List<dynamic> elements) {
+    final tables = <LayoutTable>[];
+    final decor = <LayoutElement>[];
+
+    for (final raw in elements) {
+      final e = LayoutElement.fromJson(raw as Map<String, dynamic>);
+      if (e.isTable) {
+        tables.add(LayoutTable(
+          tableId: e.id,
+          layoutElementId: e.id,
+          tableNumber: int.tryParse(e.label) ?? tables.length + 1,
+          floor: e.floor,
+          x: e.x,
+          y: e.y,
+          isPending: true,
+        ));
+      } else {
+        decor.add(e);
+      }
+    }
+
+    return TableLayout(branchId: branchId, tables: tables, elements: decor);
+  }
 }

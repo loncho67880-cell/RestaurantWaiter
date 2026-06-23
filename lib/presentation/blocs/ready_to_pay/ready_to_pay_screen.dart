@@ -181,11 +181,15 @@ class _ReadyCard extends StatelessWidget {
               children: [
                 Icon(Icons.table_restaurant_rounded, color: theme.colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
-                Text(
-                  '${t('tableNum')} ${reservation.tableNumber}  ·  ${t('floor')} ${reservation.floor}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Expanded(
+                  child: Text(
+                    '${t('tableNum')} ${reservation.tableNumber}  ·  ${t('floor')} ${reservation.floor}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -216,16 +220,24 @@ class _ReadyCard extends StatelessWidget {
               children: [
                 Icon(Icons.schedule_rounded, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
                 const SizedBox(width: 6),
-                Text(
-                  formatReservationDateTime(reservation.reservationDate, appConfig.localeCode),
-                  style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                Expanded(
+                  child: Text(
+                    formatReservationDateTime(reservation.reservationDate, appConfig.localeCode),
+                    style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Icon(Icons.people_rounded, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
                 const SizedBox(width: 6),
-                Text(
-                  '${reservation.guestCount} ${t('guestCount').toLowerCase()}',
-                  style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                Flexible(
+                  child: Text(
+                    '${reservation.guestCount} ${t('guestCount').toLowerCase()}',
+                    style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

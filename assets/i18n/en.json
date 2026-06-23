@@ -187,7 +187,7 @@
   "tableOrganizerSaved": "Layout saved.",
   "tableOrganizerSaveError": "Could not save the layout.",
   "tableOrganizerAddTable": "Table",
-  "tableOrganizerAddFloor": "Floor",
+  "tableOrganizerAddFloor": "Add floor",
   "tableElementEntrance": "Entrance",
   "tableElementExit": "Exit",
   "tableElementReception": "Reception",
@@ -201,6 +201,8 @@
   "tableOrganizerLabel": "Label",
   "tableOrganizerDelete": "Delete",
   "tableOrganizerApply": "Apply",
+  "tableOrganizerTableNumber": "Table number",
+  "tableOrganizerCapacity": "Capacity (seats)",
 
   "navReservations": "Reservations",
   "navConfigTables": "Tables",

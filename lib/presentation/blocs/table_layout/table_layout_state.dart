@@ -9,6 +9,7 @@ class TableLayoutState extends Equatable {
   final List<LayoutTable> tables;
   final List<LayoutElement> elements;
   final int selectedFloor;
+  final int floorCount;
   final bool saving;
   final bool dirty;
 
@@ -18,6 +19,7 @@ class TableLayoutState extends Equatable {
     this.tables = const [],
     this.elements = const [],
     this.selectedFloor = 1,
+    this.floorCount = 1,
     this.saving = false,
     this.dirty = false,
   });
@@ -30,16 +32,13 @@ class TableLayoutState extends Equatable {
   List<LayoutElement> get floorElements =>
       allElements.where((e) => e.floor == selectedFloor).toList();
 
-  /// Elements placed by the waiter on the canvas (excludes backend tables).
-  List<LayoutElement> get canvasElements =>
-      elements.where((e) => e.floor == selectedFloor).toList();
-
   TableLayoutState copyWith({
     TableLayoutStatus? status,
     String? branchId,
     List<LayoutTable>? tables,
     List<LayoutElement>? elements,
     int? selectedFloor,
+    int? floorCount,
     bool? saving,
     bool? dirty,
   }) {
@@ -49,6 +48,7 @@ class TableLayoutState extends Equatable {
       tables: tables ?? this.tables,
       elements: elements ?? this.elements,
       selectedFloor: selectedFloor ?? this.selectedFloor,
+      floorCount: floorCount ?? this.floorCount,
       saving: saving ?? this.saving,
       dirty: dirty ?? this.dirty,
     );
@@ -58,12 +58,15 @@ class TableLayoutState extends Equatable {
   List<Object?> get props => [
         status,
         branchId,
-        elements.map((e) => '${e.id}:${e.x}:${e.y}:${e.label}:${e.floor}').join('|'),
+        elements
+            .map((e) => '${e.id}:${e.x}:${e.y}:${e.label}:${e.floor}')
+            .join('|'),
         tables
             .map((t) =>
-                '${t.tableId}:${t.positionX}:${t.positionY}:${t.floor}')
+                '${t.tableId}:${t.x}:${t.y}:${t.floor}:${t.shape}:${t.tableNumber}:${t.capacity}')
             .join('|'),
         selectedFloor,
+        floorCount,
         saving,
         dirty,
       ];

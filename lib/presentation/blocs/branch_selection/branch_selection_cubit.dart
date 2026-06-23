@@ -14,6 +14,7 @@ class BranchSelectionCubit extends Cubit<BranchSelectionState> {
   }) : super(const BranchSelectionState());
 
   Future<void> load() async {
+    if (isClosed) return;
     emit(state.copyWith(
       status: BranchSelectionStatus.loading,
       clearError: true,
@@ -22,11 +23,13 @@ class BranchSelectionCubit extends Cubit<BranchSelectionState> {
       final branches = await branchRepository.getBranches(
         restaurantId: restaurantId,
       );
+      if (isClosed) return;
       emit(state.copyWith(
         status: BranchSelectionStatus.loaded,
         branches: branches,
       ));
     } catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(
         status: BranchSelectionStatus.error,
         errorMessage: e.toString(),
@@ -35,6 +38,7 @@ class BranchSelectionCubit extends Cubit<BranchSelectionState> {
   }
 
   void selectBranch(Branch branch) {
+    if (isClosed) return;
     emit(state.copyWith(selectedBranch: branch));
   }
 }
