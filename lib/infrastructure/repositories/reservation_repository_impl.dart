@@ -130,6 +130,31 @@ class ReservationRepositoryImpl implements ReservationRepository {
     );
   }
 
+  @override
+  Future<Reservation> cancelByWaiter({
+    required String reservationId,
+    required String accessToken,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/api/reservations/$reservationId/cancel-waiter',
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      return Reservation.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      final body = e.response?.data;
+      debugPrint(
+        '[Reservations] cancelByWaiter failed status=$status body=$body',
+      );
+      final message = _extractApiMessage(body);
+      throw Exception(
+        message ??
+            'No se pudo cancelar la reserva${status != null ? ' (HTTP $status)' : ''}',
+      );
+    }
+  }
+
   List<Reservation> _parseList(dynamic data) {
     final list = _extractList(data);
     return list

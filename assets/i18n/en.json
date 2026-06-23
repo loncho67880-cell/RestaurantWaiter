@@ -171,6 +171,16 @@
   "waiterEditOrderError": "Could not update the pre-order. Please try again.",
   "waiterEditOrderNoValidItems": "No valid dishes to save. Wait for the menu to load or add dishes.",
 
+  "reservationDetailTitle": "Reservation details",
+  "customerSectionTitle": "Customer",
+  "customerNameLabel": "Name",
+  "customerPhoneLabel": "Phone",
+  "callCustomerBtn": "Call customer",
+  "noPhoneAvailable": "No phone on file",
+  "walkInCustomerLabel": "Walk-in customer (no app reservation)",
+  "reservationInfoTitle": "Reservation info",
+  "cancelReservationWaiterMessage": "Customer not coming? You can cancel this reservation. This cannot be undone.",
+
   "manualOrderTitle": "Manual order",
   "manualOrderTableNumber": "Table number",
   "manualOrderTableRequired": "Select a table.",
@@ -207,6 +217,7 @@
   "navReservations": "Reservations",
   "navConfigTables": "Tables",
   "navReadyToPay": "Ready to pay",
+  "adminOnlyTables": "Only administrators can configure tables.",
 
   "readyToPayTitle": "Ready to pay",
   "readyToPayBadge": "Ready to pay",

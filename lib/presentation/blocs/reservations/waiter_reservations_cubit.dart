@@ -100,6 +100,26 @@ class WaiterReservationsCubit extends Cubit<WaiterReservationsState> {
     emit(state.copyWith(reservations: updatedList));
   }
 
+  void removeReservation(String reservationId) {
+    emit(state.copyWith(
+      reservations:
+          state.reservations.where((r) => r.id != reservationId).toList(),
+    ));
+  }
+
+  Future<String?> cancel(String reservationId) async {
+    try {
+      await reservationRepository.cancelByWaiter(
+        reservationId: reservationId,
+        accessToken: accessToken,
+      );
+      removeReservation(reservationId);
+      return null;
+    } catch (_) {
+      return 'cancelReservationError';
+    }
+  }
+
   /// Pending waiter confirmation first, then in preparation, then by time.
   void _sortReservations(List<Reservation> reservations) {
     reservations.sort((a, b) {

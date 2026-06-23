@@ -7,7 +7,7 @@ import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
 import 'package:restaurantwaiter/presentation/blocs/manual_order/manual_order_screen.dart';
-import 'package:restaurantwaiter/presentation/blocs/reservations/edit_reservation_order_screen.dart';
+import 'package:restaurantwaiter/presentation/blocs/reservations/reservation_detail_screen.dart';
 import 'package:restaurantwaiter/presentation/blocs/reservations/waiter_reservations_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/reservations/waiter_reservations_state.dart';
 import 'package:restaurantwaiter/presentation/widgets/branch_guard.dart';
@@ -101,7 +101,7 @@ class _ActiveReservationsView extends StatelessWidget {
                   children: [
                     Text(
                       t('waiterHomeSubtitle'),
-                      style: theme.textTheme.bodyLarge?.copyWith(
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.65),
                       ),
@@ -112,11 +112,7 @@ class _ActiveReservationsView extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 16),
                         child: _ReservationCard(
                           reservation: r,
-                          isConfirming: state.confirmingId == r.id,
-                          isMarkingReady: state.markingReadyId == r.id,
-                          onConfirm: () => _confirm(context, r),
-                          onMarkReady: () => _markReady(context, r),
-                          onEditOrder: () => _editOrder(context, r),
+                          onTap: () => _openDetail(context, r),
                         ),
                       ),
                     ),
@@ -136,53 +132,23 @@ class _ActiveReservationsView extends StatelessWidget {
     );
   }
 
-  Future<void> _confirm(BuildContext context, Reservation reservation) async {
-    final t = context.read<AppConfigCubit>().translate;
-    final theme = Theme.of(context);
+  Future<void> _openDetail(BuildContext context, Reservation reservation) async {
     final cubit = context.read<WaiterReservationsCubit>();
-    final messenger = ScaffoldMessenger.of(context);
-
-    final errorKey = await cubit.confirm(reservation.id);
-    if (errorKey == null) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(t('waiterConfirmSuccess')),
-          behavior: SnackBarBehavior.floating,
+    final result = await Navigator.push<ReservationDetailResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: cubit,
+          child: ReservationDetailScreen(reservation: reservation),
         ),
-      );
-    } else {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(t(errorKey)),
-          backgroundColor: theme.colorScheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  Future<void> _markReady(BuildContext context, Reservation reservation) async {
-    final t = context.read<AppConfigCubit>().translate;
-    final theme = Theme.of(context);
-    final cubit = context.read<WaiterReservationsCubit>();
-    final messenger = ScaffoldMessenger.of(context);
-
-    final errorKey = await cubit.markReadyForPayment(reservation.id);
-    if (errorKey == null) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(t('waiterMarkReadySuccess')),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } else {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(t(errorKey)),
-          backgroundColor: theme.colorScheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ),
+    );
+    if (!context.mounted || result == null) return;
+    switch (result) {
+      case ReservationDetailUpdated(:final reservation):
+        cubit.replaceReservation(reservation);
+      case ReservationDetailCancelled():
+        cubit.removeReservation(reservation.id);
     }
   }
 
@@ -195,18 +161,6 @@ class _ActiveReservationsView extends StatelessWidget {
     );
     if (created == true && context.mounted) {
       await context.read<WaiterReservationsCubit>().load();
-    }
-  }
-
-  Future<void> _editOrder(BuildContext context, Reservation reservation) async {
-    final updated = await Navigator.push<Reservation>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EditReservationOrderScreen(reservation: reservation),
-      ),
-    );
-    if (updated != null && context.mounted) {
-      context.read<WaiterReservationsCubit>().replaceReservation(updated);
     }
   }
 }
@@ -373,19 +327,11 @@ class _ErrorView extends StatelessWidget {
 
 class _ReservationCard extends StatelessWidget {
   final Reservation reservation;
-  final bool isConfirming;
-  final bool isMarkingReady;
-  final VoidCallback onConfirm;
-  final VoidCallback onMarkReady;
-  final VoidCallback onEditOrder;
+  final VoidCallback onTap;
 
   const _ReservationCard({
     required this.reservation,
-    required this.isConfirming,
-    required this.isMarkingReady,
-    required this.onConfirm,
-    required this.onMarkReady,
-    required this.onEditOrder,
+    required this.onTap,
   });
 
   @override
@@ -397,7 +343,10 @@ class _ReservationCard extends StatelessWidget {
     return Material(
       color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(20),
-      child: Container(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -509,84 +458,17 @@ class _ReservationCard extends StatelessWidget {
                   value: reservation.notes!,
                 ),
               ],
-              if (reservation.canWaiterEditOrder || reservation.canWaiterConfirm) ...[
-                const SizedBox(height: 16),
-                if (reservation.canWaiterEditOrder) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: OutlinedButton.icon(
-                      onPressed: onEditOrder,
-                      icon: const Icon(Icons.edit_rounded, size: 20),
-                      label: Text(t('waiterEditOrderBtn')),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: theme.colorScheme.primary,
-                        side: BorderSide(color: theme.colorScheme.primary),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (reservation.canWaiterConfirm) const SizedBox(height: 10),
-                ],
-                if (reservation.canWaiterConfirm)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: FilledButton.icon(
-                      onPressed: isConfirming ? null : onConfirm,
-                      icon: isConfirming
-                          ? SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: theme.colorScheme.onPrimary,
-                              ),
-                            )
-                          : const Icon(Icons.soup_kitchen_rounded, size: 20),
-                      label: Text(t('waiterConfirmBtn')),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-              if (reservation.canMarkReadyForPayment) ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 46,
-                  child: FilledButton.icon(
-                    onPressed: isMarkingReady ? null : onMarkReady,
-                    icon: isMarkingReady
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: theme.colorScheme.onPrimary,
-                            ),
-                          )
-                        : const Icon(Icons.payments_rounded, size: 20),
-                    label: Text(t('waiterMarkReadyBtn')),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  color: theme.colorScheme.primary.withValues(alpha: 0.6),
                 ),
-              ],
+              ),
             ],
           ),
+        ),
         ),
       ),
     );

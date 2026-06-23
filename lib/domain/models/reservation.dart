@@ -22,6 +22,8 @@ class Reservation {
   final ReservationStatus status;
   final PreOrderStatus preOrderStatus;
   final String? notes;
+  final String? customerName;
+  final String? customerPhone;
   final List<ReservationItem> items;
 
   const Reservation({
@@ -35,6 +37,8 @@ class Reservation {
     required this.status,
     this.preOrderStatus = PreOrderStatus.none,
     this.notes,
+    this.customerName,
+    this.customerPhone,
     required this.items,
   });
 
@@ -51,6 +55,10 @@ class Reservation {
         status: _parseStatus(json['status'] as String?),
         preOrderStatus: _parsePreOrderStatus(json['preOrderStatus'] as String?),
         notes: json['notes'] as String?,
+        customerName: json['customerName'] as String? ??
+            json['CustomerName'] as String?,
+        customerPhone: json['customerPhone'] as String? ??
+            json['CustomerPhone'] as String?,
         items: (json['items'] as List<dynamic>? ?? [])
             .map((e) => ReservationItem.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -105,8 +113,37 @@ class Reservation {
   /// Waiter can adjust the pre-order before sending it to the kitchen.
   bool get canWaiterEditOrder => !isCancelled && isAwaitingWaiter;
 
-  /// A reservation the waiter can still send to the kitchen: it must have
-  /// pre-ordered items and await waiter confirmation.
+  /// A reservation the waiter can still send to the kitchen.
   bool get canWaiterConfirm =>
       !isCancelled && isAwaitingWaiter && items.isNotEmpty;
+
+  /// Waiter may cancel before the order is sent to the kitchen.
+  bool get canWaiterCancel =>
+      !isCancelled && !isInPreparation && !isReadyForPayment;
+
+  bool get hasCustomerContact =>
+      customerName != null && customerName!.trim().isNotEmpty;
+
+  Reservation copyWith({
+    ReservationStatus? status,
+    PreOrderStatus? preOrderStatus,
+    List<ReservationItem>? items,
+    String? customerName,
+    String? customerPhone,
+  }) =>
+      Reservation(
+        id: id,
+        branchId: branchId,
+        tableId: tableId,
+        tableNumber: tableNumber,
+        floor: floor,
+        reservationDate: reservationDate,
+        guestCount: guestCount,
+        status: status ?? this.status,
+        preOrderStatus: preOrderStatus ?? this.preOrderStatus,
+        notes: notes,
+        customerName: customerName ?? this.customerName,
+        customerPhone: customerPhone ?? this.customerPhone,
+        items: items ?? this.items,
+      );
 }

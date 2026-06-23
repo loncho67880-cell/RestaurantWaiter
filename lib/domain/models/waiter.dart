@@ -5,6 +5,7 @@ class Waiter {
   final String token;
   final String? preferredLanguage;
   final String? defaultBranchId;
+  final bool isAdmin;
 
   const Waiter({
     required this.id,
@@ -13,6 +14,7 @@ class Waiter {
     required this.token,
     this.preferredLanguage,
     this.defaultBranchId,
+    this.isAdmin = false,
   });
 
   factory Waiter.fromJson(
@@ -26,6 +28,7 @@ class Waiter {
       token: token,
       preferredLanguage: json['preferredLanguage'] as String?,
       defaultBranchId: json['defaultBranchId']?.toString(),
+      isAdmin: json['isAdmin'] as bool? ?? json['IsAdmin'] as bool? ?? false,
     );
   }
 }

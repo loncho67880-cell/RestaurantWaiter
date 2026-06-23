@@ -171,6 +171,16 @@
   "waiterEditOrderError": "No se pudo actualizar la pre-orden. Intenta de nuevo.",
   "waiterEditOrderNoValidItems": "No hay platos válidos para guardar. Espera a que cargue el menú o agrega platos.",
 
+  "reservationDetailTitle": "Detalle de reserva",
+  "customerSectionTitle": "Cliente",
+  "customerNameLabel": "Nombre",
+  "customerPhoneLabel": "Celular",
+  "callCustomerBtn": "Llamar al cliente",
+  "noPhoneAvailable": "Sin teléfono registrado",
+  "walkInCustomerLabel": "Cliente en local (sin reserva en app)",
+  "reservationInfoTitle": "Información de la reserva",
+  "cancelReservationWaiterMessage": "¿El cliente no asistirá? Puedes cancelar la reserva. Esta acción no se puede deshacer.",
+
   "manualOrderTitle": "Pedido manual",
   "manualOrderTableNumber": "Número de mesa",
   "manualOrderTableRequired": "Selecciona una mesa.",
@@ -207,6 +217,7 @@
   "navReservations": "Reservas",
   "navConfigTables": "Mesas",
   "navReadyToPay": "Por pagar",
+  "adminOnlyTables": "Solo los administradores pueden configurar las mesas.",
 
   "readyToPayTitle": "Listos para pagar",
   "readyToPayBadge": "Listo para pagar",

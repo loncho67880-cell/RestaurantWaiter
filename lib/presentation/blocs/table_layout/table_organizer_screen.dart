@@ -7,6 +7,7 @@ import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
 import 'package:restaurantwaiter/presentation/blocs/table_layout/table_layout_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/table_layout/table_layout_state.dart';
+import 'package:restaurantwaiter/presentation/widgets/admin_guard.dart';
 import 'package:restaurantwaiter/presentation/widgets/branch_guard.dart';
 
 class TableOrganizerScreen extends StatelessWidget {
@@ -19,14 +20,16 @@ class TableOrganizerScreen extends StatelessWidget {
     if (authState is! AuthAuthenticated) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    return BranchGuard(
-      child: BlocProvider(
-        create: (_) => TableLayoutCubit(
-          repository: context.read<TableLayoutRepository>(),
-          branchId: appConfig.branchId,
-          accessToken: authState.waiter.token,
-        )..load(),
-        child: const _TableOrganizerView(),
+    return AdminGuard(
+      child: BranchGuard(
+        child: BlocProvider(
+          create: (_) => TableLayoutCubit(
+            repository: context.read<TableLayoutRepository>(),
+            branchId: appConfig.branchId,
+            accessToken: authState.waiter.token,
+          )..load(),
+          child: const _TableOrganizerView(),
+        ),
       ),
     );
   }

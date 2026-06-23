@@ -28,4 +28,10 @@ abstract class ReservationRepository {
     required List<ReservationItem> items,
     required String accessToken,
   });
+
+  /// Cancels a reservation on behalf of the waiter (before kitchen).
+  Future<Reservation> cancelByWaiter({
+    required String reservationId,
+    required String accessToken,
+  });
 }

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:restaurantwaiter/core/utils/reservation_datetime.dart';
 import 'package:restaurantwaiter/domain/models/manual_order.dart';
 import 'package:restaurantwaiter/domain/models/reservation.dart';
 import 'package:restaurantwaiter/domain/models/table_model.dart';
@@ -26,7 +27,7 @@ class OrderRepositoryImpl implements OrderRepository {
         '/api/reservations/tables',
         queryParameters: {
           'branchId': branchId,
-          'reservationDate': DateTime.now().toUtc().toIso8601String(),
+          'reservationDate': formatApiReservationDate(DateTime.now()),
         },
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
