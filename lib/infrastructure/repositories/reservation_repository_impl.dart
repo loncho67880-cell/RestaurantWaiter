@@ -82,6 +82,18 @@ class ReservationRepositoryImpl implements ReservationRepository {
   }
 
   @override
+  Future<Reservation> confirmAtTableByWaiter({
+    required String reservationId,
+    required String accessToken,
+  }) async {
+    final response = await _dio.put(
+      '/api/reservations/$reservationId/confirm-at-table/waiter',
+      options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+    );
+    return Reservation.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
   Future<Reservation> updateItemsByWaiter({
     required String reservationId,
     required List<ReservationItem> items,

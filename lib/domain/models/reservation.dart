@@ -111,11 +111,18 @@ class Reservation {
       !isCancelled && isInPreparation;
 
   /// Waiter can adjust the pre-order before sending it to the kitchen.
-  bool get canWaiterEditOrder => !isCancelled && isAwaitingWaiter;
+  bool get canWaiterEditOrder =>
+      !isCancelled && (isAwaitingWaiter || preOrderStatus == PreOrderStatus.none);
+
+  /// Waiter can mark that the customer is at the table (without the app).
+  bool get canWaiterConfirmArrival =>
+      !isCancelled && preOrderStatus == PreOrderStatus.none;
 
   /// A reservation the waiter can still send to the kitchen.
   bool get canWaiterConfirm =>
-      !isCancelled && isAwaitingWaiter && items.isNotEmpty;
+      !isCancelled &&
+      (isAwaitingWaiter || preOrderStatus == PreOrderStatus.none) &&
+      items.isNotEmpty;
 
   /// Waiter may cancel before the order is sent to the kitchen.
   bool get canWaiterCancel =>

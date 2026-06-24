@@ -144,6 +144,7 @@
   "confirmAtTableNoItemsTitle": "Sin pre-orden",
   "confirmAtTableNoItemsMessage": "Agrega platos a tu pre-orden antes de solicitar que preparemos tu pedido.",
   "statusPendingWaiter": "Esperando confirmación del mesero",
+  "statusAwaitingArrival": "Sin confirmar llegada",
   "statusInPreparation": "En preparación",
 
   "loginWaiterSubtitle": "Inicia sesión como mesero para continuar",
@@ -157,6 +158,9 @@
   "waiterNoReservations": "No hay reservas activas en este momento.",
   "waiterReservationsLoadError": "No se pudieron cargar las reservas. Intenta de nuevo.",
   "waiterConfirmBtn": "Confirmar y enviar a cocina",
+  "waiterConfirmArrivalBtn": "Confirmar llegada a la mesa",
+  "waiterConfirmArrivalSuccess": "Llegada confirmada. Valida el pedido con el cliente.",
+  "waiterConfirmArrivalError": "No se pudo confirmar la llegada. Intenta de nuevo.",
   "waiterConfirmSuccess": "Pedido enviado a cocina.",
   "waiterConfirmError": "No se pudo confirmar el pedido. Intenta de nuevo.",
   "waiterMarkReadyBtn": "Listo para pagar",

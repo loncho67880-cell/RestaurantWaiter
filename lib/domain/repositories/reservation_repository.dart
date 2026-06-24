@@ -15,6 +15,12 @@ abstract class ReservationRepository {
     required String accessToken,
   });
 
+  /// Marks that the customer is at the table when they did not confirm in the app.
+  Future<Reservation> confirmAtTableByWaiter({
+    required String reservationId,
+    required String accessToken,
+  });
+
   /// Marks an in-preparation reservation as ready for payment; it leaves the
   /// active waiter list on the backend.
   Future<void> markReadyForPayment({

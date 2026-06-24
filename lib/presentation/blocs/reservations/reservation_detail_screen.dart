@@ -28,6 +28,7 @@ class ReservationDetailScreen extends StatefulWidget {
 
 class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
   late Reservation _reservation;
+  bool _confirmingArrival = false;
   bool _confirming = false;
   bool _markingReady = false;
   bool _cancelling = false;
@@ -44,6 +45,30 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
     final uri = Uri(scheme: 'tel', path: digits);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
+    }
+  }
+
+  Future<void> _confirmArrival() async {
+    setState(() => _confirmingArrival = true);
+    final cubit = context.read<WaiterReservationsCubit>();
+    final t = context.read<AppConfigCubit>().translate;
+    final errorKey = await cubit.confirmArrival(_reservation.id);
+    if (!mounted) return;
+    setState(() => _confirmingArrival = false);
+
+    if (errorKey == null) {
+      final updated = cubit.state.reservations
+          .where((r) => r.id == _reservation.id)
+          .firstOrNull;
+      if (updated != null) setState(() => _reservation = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(t('waiterConfirmArrivalSuccess')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      _showError(t(errorKey));
     }
   }
 
@@ -329,6 +354,27 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
               ),
               const SizedBox(height: 10),
             ],
+            if (_reservation.canWaiterConfirmArrival) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton.icon(
+                  onPressed: _confirmingArrival ? null : _confirmArrival,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.blue.shade700,
+                  ),
+                  icon: _confirmingArrival
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.event_seat_rounded),
+                  label: Text(t('waiterConfirmArrivalBtn')),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             if (_reservation.canWaiterConfirm) ...[
               SizedBox(
                 width: double.infinity,
@@ -402,6 +448,7 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
   ) {
     if (_reservation.isInPreparation) return t('statusInPreparation');
     if (_reservation.isAwaitingWaiter) return t('statusPendingWaiter');
+    if (_reservation.canWaiterConfirmArrival) return t('statusAwaitingArrival');
     return switch (_reservation.status) {
       ReservationStatus.confirmed => t('statusConfirmed'),
       ReservationStatus.cancelled => t('statusCancelled'),

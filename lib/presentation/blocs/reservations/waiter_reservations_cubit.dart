@@ -45,6 +45,31 @@ class WaiterReservationsCubit extends Cubit<WaiterReservationsState> {
   }
 
   /// Returns null on success, or an error i18n key on failure.
+  Future<String?> confirmArrival(String reservationId) async {
+    emit(state.copyWith(confirmingId: reservationId));
+    try {
+      final updated = await reservationRepository.confirmAtTableByWaiter(
+        reservationId: reservationId,
+        accessToken: accessToken,
+      );
+
+      final updatedList = state.reservations
+          .map((r) => r.id == updated.id ? updated : r)
+          .toList();
+      _sortReservations(updatedList);
+
+      emit(state.copyWith(
+        reservations: updatedList,
+        clearConfirmingId: true,
+      ));
+      return null;
+    } catch (_) {
+      emit(state.copyWith(clearConfirmingId: true));
+      return 'waiterConfirmArrivalError';
+    }
+  }
+
+  /// Returns null on success, or an error i18n key on failure.
   Future<String?> confirm(String reservationId) async {
     emit(state.copyWith(confirmingId: reservationId));
     try {
@@ -125,8 +150,9 @@ class WaiterReservationsCubit extends Cubit<WaiterReservationsState> {
     reservations.sort((a, b) {
       int priority(Reservation r) {
         if (r.isAwaitingWaiter) return 0;
-        if (r.isInPreparation) return 1;
-        return 2;
+        if (r.canWaiterConfirmArrival) return 1;
+        if (r.isInPreparation) return 2;
+        return 3;
       }
 
       final priorityCompare = priority(a).compareTo(priority(b));

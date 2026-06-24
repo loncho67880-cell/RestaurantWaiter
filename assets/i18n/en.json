@@ -144,6 +144,7 @@
   "confirmAtTableNoItemsTitle": "No pre-order",
   "confirmAtTableNoItemsMessage": "Add dishes to your pre-order before requesting preparation.",
   "statusPendingWaiter": "Awaiting waiter confirmation",
+  "statusAwaitingArrival": "Arrival not confirmed",
   "statusInPreparation": "In preparation",
 
   "loginWaiterSubtitle": "Sign in as a waiter to continue",
@@ -157,6 +158,9 @@
   "waiterNoReservations": "There are no active reservations right now.",
   "waiterReservationsLoadError": "Could not load reservations. Please try again.",
   "waiterConfirmBtn": "Confirm and send to kitchen",
+  "waiterConfirmArrivalBtn": "Confirm arrival at table",
+  "waiterConfirmArrivalSuccess": "Arrival confirmed. Validate the order with the customer.",
+  "waiterConfirmArrivalError": "Could not confirm arrival. Please try again.",
   "waiterConfirmSuccess": "Order sent to the kitchen.",
   "waiterConfirmError": "Could not confirm the order. Please try again.",
   "waiterMarkReadyBtn": "Ready to pay",

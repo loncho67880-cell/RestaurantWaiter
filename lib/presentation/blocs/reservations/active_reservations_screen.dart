@@ -477,6 +477,7 @@ class _ReservationCard extends StatelessWidget {
   Color _statusColor() {
     if (reservation.isInPreparation) return Colors.teal;
     if (reservation.isAwaitingWaiter) return Colors.blue;
+    if (reservation.canWaiterConfirmArrival) return Colors.deepOrange;
     return switch (reservation.status) {
       ReservationStatus.confirmed => Colors.green,
       ReservationStatus.cancelled => Colors.red,
@@ -489,6 +490,7 @@ class _ReservationCard extends StatelessWidget {
   ) {
     if (reservation.isInPreparation) return t('statusInPreparation');
     if (reservation.isAwaitingWaiter) return t('statusPendingWaiter');
+    if (reservation.canWaiterConfirmArrival) return t('statusAwaitingArrival');
     return switch (reservation.status) {
       ReservationStatus.confirmed => t('statusConfirmed'),
       ReservationStatus.cancelled => t('statusCancelled'),
