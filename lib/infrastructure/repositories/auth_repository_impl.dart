@@ -22,7 +22,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
     try {
       final response = await dio.post(
-        '/api/WaiterAuth/google',
+        '/api/waiterauth/google',
         data: {
           'idToken': idToken,
           'restaurantId': restaurantId,

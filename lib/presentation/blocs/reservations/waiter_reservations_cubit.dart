@@ -149,10 +149,11 @@ class WaiterReservationsCubit extends Cubit<WaiterReservationsState> {
   void _sortReservations(List<Reservation> reservations) {
     reservations.sort((a, b) {
       int priority(Reservation r) {
-        if (r.isAwaitingWaiter) return 0;
-        if (r.canWaiterConfirmArrival) return 1;
-        if (r.isInPreparation) return 2;
-        return 3;
+        if (r.isReadingQr) return 0;
+        if (r.isAwaitingWaiter) return 1;
+        if (r.canWaiterConfirmArrival) return 2;
+        if (r.isInPreparation) return 3;
+        return 4;
       }
 
       final priorityCompare = priority(a).compareTo(priority(b));

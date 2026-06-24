@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:restaurantwaiter/domain/models/table_layout.dart';
 import 'package:restaurantwaiter/domain/repositories/table_layout_repository.dart';
+import 'package:restaurantwaiter/domain/repositories/table_qr_repository.dart';
+import 'package:restaurantwaiter/infrastructure/services/table_qr_pdf_service.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
@@ -58,6 +60,21 @@ class _TableOrganizerView extends StatelessWidget {
           ),
         ),
         actions: [
+          BlocBuilder<TableLayoutCubit, TableLayoutState>(
+            builder: (context, state) {
+              return TextButton.icon(
+                onPressed: state.status != TableLayoutStatus.ready
+                    ? null
+                    : () => _exportQrPdf(context),
+                icon: Icon(Icons.qr_code_2_rounded,
+                    color: theme.colorScheme.onPrimary),
+                label: Text(
+                  t('tableOrganizerQrPdf'),
+                  style: TextStyle(color: theme.colorScheme.onPrimary),
+                ),
+              );
+            },
+          ),
           BlocBuilder<TableLayoutCubit, TableLayoutState>(
             builder: (context, state) {
               return TextButton.icon(
@@ -165,6 +182,46 @@ class _TableOrganizerView extends StatelessWidget {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  Future<void> _exportQrPdf(BuildContext context) async {
+    final t = context.read<AppConfigCubit>().translate;
+    final appConfig = context.read<AppConfigCubit>().state;
+    final authState = context.read<AuthCubit>().state;
+    final messenger = ScaffoldMessenger.of(context);
+    final theme = Theme.of(context);
+
+    if (authState is! AuthAuthenticated) return;
+
+    try {
+      final tokens = await context.read<TableQrRepository>().getBranchTokens(
+            branchId: appConfig.branchId,
+            accessToken: authState.waiter.token,
+          );
+
+      if (tokens.isEmpty) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(t('tableOrganizerQrNoTables')),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      await TableQrPdfService().printBranchQrPdf(
+        branchName: appConfig.branchName,
+        tokens: tokens,
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(t('tableOrganizerQrError')),
+          backgroundColor: theme.colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }
 

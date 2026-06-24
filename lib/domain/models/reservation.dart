@@ -1,11 +1,14 @@
 import 'package:restaurantwaiter/core/utils/reservation_datetime.dart';
 
+import 'table_session_participant.dart';
+
 import 'reservation_item.dart';
 
 enum ReservationStatus { pending, confirmed, cancelled }
 
 enum PreOrderStatus {
   none,
+  readingQr,
   pendingWaiterConfirmation,
   inPreparation,
   readyForPayment,
@@ -25,6 +28,9 @@ class Reservation {
   final String? customerName;
   final String? customerPhone;
   final List<ReservationItem> items;
+  final List<TableSessionParticipant> participants;
+  final bool allParticipantsConfirmed;
+  final bool canFinalizeTable;
 
   const Reservation({
     required this.id,
@@ -40,6 +46,9 @@ class Reservation {
     this.customerName,
     this.customerPhone,
     required this.items,
+    this.participants = const [],
+    this.allParticipantsConfirmed = false,
+    this.canFinalizeTable = false,
   });
 
   factory Reservation.fromJson(Map<String, dynamic> json) => Reservation(
@@ -62,7 +71,27 @@ class Reservation {
         items: (json['items'] as List<dynamic>? ?? [])
             .map((e) => ReservationItem.fromJson(e as Map<String, dynamic>))
             .toList(),
+        participants: _parseParticipants(json),
+        allParticipantsConfirmed:
+            json['allParticipantsConfirmed'] == true ||
+                json['AllParticipantsConfirmed'] == true,
+        canFinalizeTable:
+            json['canFinalizeTable'] == true ||
+                json['CanFinalizeTable'] == true,
       );
+
+  static List<TableSessionParticipant> _parseParticipants(
+    Map<String, dynamic> json,
+  ) {
+    final raw = json['participants'] ?? json['Participants'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => TableSessionParticipant.fromJson(
+              Map<String, dynamic>.from(e),
+            ))
+        .toList();
+  }
 
   static String _readString(dynamic value) => value?.toString() ?? '';
 
@@ -85,6 +114,7 @@ class Reservation {
       };
 
   static PreOrderStatus _parsePreOrderStatus(String? s) => switch (s) {
+        'LeyendoQR' => PreOrderStatus.readingQr,
         'PendienteConfirmacionMesero' => PreOrderStatus.pendingWaiterConfirmation,
         'ConfirmadoMesero' || 'EnCocina' || 'EnPreparacion' =>
           PreOrderStatus.inPreparation,
@@ -99,6 +129,8 @@ class Reservation {
 
   bool get isUpcoming => reservationDate.isAfter(DateTime.now());
 
+  bool get isReadingQr => preOrderStatus == PreOrderStatus.readingQr;
+
   bool get isAwaitingWaiter =>
       preOrderStatus == PreOrderStatus.pendingWaiterConfirmation;
 
@@ -106,13 +138,14 @@ class Reservation {
 
   bool get isReadyForPayment => preOrderStatus == PreOrderStatus.readyForPayment;
 
-  /// Waiter delivered all dishes — mark table ready to pay.
-  bool get canMarkReadyForPayment =>
-      !isCancelled && isInPreparation;
+  bool get canMarkReadyForPayment => !isCancelled && isInPreparation;
 
-  /// Waiter can adjust the pre-order before sending it to the kitchen.
+  bool get hasTableSessionParticipants => participants.isNotEmpty;
+
+  /// Waiter can adjust the pre-order while QR session is active or awaiting confirmation.
   bool get canWaiterEditOrder =>
-      !isCancelled && (isAwaitingWaiter || preOrderStatus == PreOrderStatus.none);
+      !isCancelled &&
+      (isReadingQr || isAwaitingWaiter || preOrderStatus == PreOrderStatus.none);
 
   /// Waiter can mark that the customer is at the table (without the app).
   bool get canWaiterConfirmArrival =>
@@ -121,7 +154,7 @@ class Reservation {
   /// A reservation the waiter can still send to the kitchen.
   bool get canWaiterConfirm =>
       !isCancelled &&
-      (isAwaitingWaiter || preOrderStatus == PreOrderStatus.none) &&
+      (isAwaitingWaiter || isReadingQr || preOrderStatus == PreOrderStatus.none) &&
       items.isNotEmpty;
 
   /// Waiter may cancel before the order is sent to the kitchen.
