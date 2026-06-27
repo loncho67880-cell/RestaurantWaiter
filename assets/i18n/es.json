@@ -184,6 +184,7 @@
   "waiterEditOrderSuccess": "Pre-orden actualizada.",
   "waiterEditOrderError": "No se pudo actualizar la pre-orden. Intenta de nuevo.",
   "waiterEditOrderNoValidItems": "No hay platos válidos para guardar. Espera a que cargue el menú o agrega platos.",
+  "waiterEditOrderTableSessionHint": "En una mesa con QR, edita el pedido de cada comensal desde la lista de abajo.",
 
   "reservationDetailTitle": "Detalle de reserva",
   "customerSectionTitle": "Cliente",

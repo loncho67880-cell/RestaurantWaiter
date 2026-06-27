@@ -184,6 +184,7 @@
   "waiterEditOrderSuccess": "Pre-order updated.",
   "waiterEditOrderError": "Could not update the pre-order. Please try again.",
   "waiterEditOrderNoValidItems": "No valid dishes to save. Wait for the menu to load or add dishes.",
+  "waiterEditOrderTableSessionHint": "For QR table sessions, edit each diner's order from the list below.",
 
   "reservationDetailTitle": "Reservation details",
   "customerSectionTitle": "Customer",

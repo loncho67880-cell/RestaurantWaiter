@@ -142,10 +142,12 @@ class Reservation {
 
   bool get hasTableSessionParticipants => participants.isNotEmpty;
 
-  /// Waiter can adjust the pre-order while QR session is active or awaiting confirmation.
+  /// Waiter can adjust the pre-order for classic reservations (not QR table sessions).
   bool get canWaiterEditOrder =>
       !isCancelled &&
-      (isReadingQr || isAwaitingWaiter || preOrderStatus == PreOrderStatus.none);
+      !isReadingQr &&
+      !hasTableSessionParticipants &&
+      (isAwaitingWaiter || preOrderStatus == PreOrderStatus.none);
 
   /// Waiter can mark that the customer is at the table (without the app).
   bool get canWaiterConfirmArrival =>

@@ -242,6 +242,24 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
   }
 
   Future<void> _editOrder() async {
+    if (_reservation.isReadingQr || _reservation.hasTableSessionParticipants) {
+      await _refreshReservation();
+      if (!mounted) return;
+      if (_reservation.isReadingQr || _reservation.hasTableSessionParticipants) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.read<AppConfigCubit>().translate(
+                    'waiterEditOrderTableSessionHint',
+                  ),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
+
     final updated = await Navigator.push<Reservation>(
       context,
       MaterialPageRoute(
