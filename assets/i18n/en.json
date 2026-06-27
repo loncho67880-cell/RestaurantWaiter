@@ -152,6 +152,8 @@
   "participantStatusConfirmed": "Order confirmed",
   "editParticipantOrderTitle": "{name}'s order",
   "editParticipantOrderBtn": "Edit order",
+  "participantOrderUpdatedRemotely": "The customer updated their order.",
+  "participantOrderConfirmedRemotely": "The customer confirmed their order.",
   "confirmParticipantOrderBtn": "Confirm {name}'s order",
   "waiterConfirmParticipantSuccess": "Diner's order confirmed.",
   "saveBtn": "Save",

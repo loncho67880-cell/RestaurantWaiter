@@ -18,6 +18,7 @@ import 'package:restaurantwaiter/infrastructure/repositories/reservation_reposit
 import 'package:restaurantwaiter/infrastructure/repositories/table_layout_repository_impl.dart';
 import 'package:restaurantwaiter/infrastructure/repositories/table_qr_repository_impl.dart';
 import 'package:restaurantwaiter/infrastructure/services/google_auth_service.dart';
+import 'package:restaurantwaiter/infrastructure/services/table_session_realtime_service.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/theme_restaurant.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
@@ -58,6 +59,9 @@ Future<void> main() async {
   final tableLayoutRepository = TableLayoutRepositoryImpl(dio: dio);
   final tableQrRepository = TableQrRepositoryImpl(dio: dio);
   final tableSessionRepository = TableSessionRepositoryImpl(dio: dio);
+  final tableSessionRealtimeService = TableSessionRealtimeService(
+    apiBaseUrl: appSettings.apiBaseUrl,
+  );
 
   runApp(
     MyApp(
@@ -69,6 +73,7 @@ Future<void> main() async {
       tableLayoutRepository: tableLayoutRepository,
       tableQrRepository: tableQrRepository,
       tableSessionRepository: tableSessionRepository,
+      tableSessionRealtimeService: tableSessionRealtimeService,
     ),
   );
 }
@@ -82,6 +87,7 @@ class MyApp extends StatelessWidget {
   final TableLayoutRepository tableLayoutRepository;
   final TableQrRepository tableQrRepository;
   final TableSessionRepository tableSessionRepository;
+  final TableSessionRealtimeService tableSessionRealtimeService;
 
   const MyApp({
     super.key,
@@ -93,6 +99,7 @@ class MyApp extends StatelessWidget {
     required this.tableLayoutRepository,
     required this.tableQrRepository,
     required this.tableSessionRepository,
+    required this.tableSessionRealtimeService,
   });
 
   @override
@@ -111,6 +118,9 @@ class MyApp extends StatelessWidget {
         RepositoryProvider<TableQrRepository>.value(value: tableQrRepository),
         RepositoryProvider<TableSessionRepository>.value(
           value: tableSessionRepository,
+        ),
+        RepositoryProvider<TableSessionRealtimeService>.value(
+          value: tableSessionRealtimeService,
         ),
       ],
       child: MultiBlocProvider(

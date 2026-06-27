@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:restaurantwaiter/core/utils/order_cart.dart';
@@ -6,9 +8,11 @@ import 'package:restaurantwaiter/domain/models/dish.dart';
 import 'package:restaurantwaiter/domain/models/reservation.dart';
 import 'package:restaurantwaiter/domain/models/reservation_item.dart';
 import 'package:restaurantwaiter/domain/models/table_session_participant.dart';
+import 'package:restaurantwaiter/domain/models/table_session_snapshot.dart';
 import 'package:restaurantwaiter/domain/repositories/reservation_repository.dart';
 import 'package:restaurantwaiter/domain/repositories/table_session_repository.dart';
 import 'package:restaurantwaiter/infrastructure/repositories/menu_repository.dart';
+import 'package:restaurantwaiter/infrastructure/services/table_session_realtime_service.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
@@ -40,17 +44,29 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
   String? _error;
   List<CategoryMenu> _categories = [];
   String _selectedCategoryId = '';
+  StreamSubscription<TableSessionSnapshot>? _realtimeSub;
+  Timer? _pollTimer;
+  Timer? _autoSaveTimer;
+  bool _syncing = false;
+  late final TableSessionRealtimeService _realtimeService;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _realtimeService = context.read<TableSessionRealtimeService>();
     _cart = {};
+    _initLiveSync();
     _loadInitialData();
   }
 
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
+    _pollTimer?.cancel();
+    _realtimeSub?.cancel();
+    _realtimeService.clearRefreshCallback(widget.sessionId);
+    _realtimeService.unwatchSession(widget.sessionId);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -60,6 +76,103 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
     if (state == AppLifecycleState.resumed && !_saving) {
       _loadInitialData();
     }
+  }
+
+  Future<void> _initLiveSync() async {
+    _realtimeService.setRefreshCallback(
+      widget.sessionId,
+      () {
+        if (mounted && !_saving) {
+          _refreshParticipantCart(showNotice: false);
+        }
+      },
+    );
+
+    _realtimeSub = _realtimeService.updatesFor(widget.sessionId).listen(
+      _onSessionSnapshot,
+      onError: (Object error, StackTrace stack) {
+        debugPrint('[EditParticipantOrder] realtime error: $error\n$stack');
+      },
+    );
+
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) {
+        if (mounted && !_saving && !_loadingMenu) {
+          _refreshParticipantCart(showNotice: false);
+        }
+      },
+    );
+
+    await _startLiveSync();
+  }
+
+  Future<void> _refreshParticipantCart({bool showNotice = false}) async {
+    if (_categories.isEmpty) return;
+
+    final authState = context.read<AuthCubit>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    try {
+      final participants =
+          await context.read<TableSessionRepository>().getParticipants(
+                sessionId: widget.sessionId,
+                accessToken: authState.waiter.token,
+              );
+      if (!mounted) return;
+
+      final participant = participants
+          .where(
+            (p) =>
+                p.customerId.toLowerCase() ==
+                widget.participant.customerId.toLowerCase(),
+          )
+          .firstOrNull;
+      if (participant == null) return;
+
+      _applyParticipantCart(participant, showNotice: showNotice);
+    } catch (e, stack) {
+      debugPrint('[EditParticipantOrder] refresh failed: $e\n$stack');
+    }
+  }
+
+  void _applyParticipantCart(
+    TableSessionParticipant participant, {
+    bool showNotice = true,
+  }) {
+    if (participant.isOrderConfirmed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.read<AppConfigCubit>().translate(
+                  'participantOrderConfirmedRemotely',
+                ),
+          ),
+        ),
+      );
+      Navigator.pop(context, widget.reservation);
+      return;
+    }
+
+    final newCart = OrderCart.reconcileWithMenu(
+      OrderCart.fromItems(participant.items),
+      _categories,
+    );
+    if (OrderCart.hasSameQuantities(_cart, newCart)) return;
+
+    setState(() => _cart = newCart);
+    if (!showNotice) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          context.read<AppConfigCubit>().translate(
+                'participantOrderUpdatedRemotely',
+              ),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _loadInitialData() async {
@@ -102,6 +215,20 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
         );
         _loadingMenu = false;
       });
+
+      final latest = _realtimeService.latestSnapshot(widget.sessionId);
+      if (latest != null) {
+        final liveParticipant = latest.participants
+            .where(
+              (p) =>
+                  p.customerId.toLowerCase() ==
+                  widget.participant.customerId.toLowerCase(),
+            )
+            .firstOrNull;
+        if (liveParticipant != null) {
+          _applyParticipantCart(liveParticipant, showNotice: false);
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -111,36 +238,109 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
     }
   }
 
-  int _quantityOf(Dish dish) => OrderCart.quantityForDish(_cart, dish);
-
-  void _addDish(Dish dish) {
-    setState(() => _cart = OrderCart.addDish(_cart, dish));
-  }
-
-  void _decrementDish(Dish dish) {
-    setState(() => _cart = OrderCart.removeDish(_cart, dish));
-  }
-
-  Future<void> _save() async {
+  Future<void> _startLiveSync() async {
     final authState = context.read<AuthCubit>().state;
     if (authState is! AuthAuthenticated) return;
 
-    setState(() => _saving = true);
     try {
-      final items = _cart.values
-          .where(
-            (item) =>
-                item.quantity > 0 &&
-                (item.dishId.isNotEmpty || item.dishName.trim().isNotEmpty),
-          )
-          .toList();
+      await _realtimeService.watchSession(
+        sessionId: widget.sessionId,
+        accessToken: authState.waiter.token,
+      );
+      await _realtimeSub?.cancel();
+      _realtimeSub = _realtimeService.updatesFor(widget.sessionId).listen(
+        _onSessionSnapshot,
+        onError: (Object error, StackTrace stack) {
+          debugPrint('[EditParticipantOrder] realtime error: $error\n$stack');
+        },
+      );
+    } catch (error, stack) {
+      debugPrint('[EditParticipantOrder] failed to start realtime: $error\n$stack');
+    }
+  }
 
+  void _onSessionSnapshot(TableSessionSnapshot snapshot) {
+    if (!mounted || _saving || _syncing || _categories.isEmpty) return;
+
+    final participant = snapshot.participants
+        .where(
+          (p) =>
+              p.customerId.toLowerCase() ==
+              widget.participant.customerId.toLowerCase(),
+        )
+        .firstOrNull;
+    if (participant == null) return;
+
+    _applyParticipantCart(participant);
+  }
+
+  int _quantityOf(Dish dish) => OrderCart.quantityForDish(_cart, dish);
+
+  List<ReservationItem> _cartItems() => _cart.values
+      .where(
+        (item) =>
+            item.quantity > 0 &&
+            (item.dishId.isNotEmpty || item.dishName.trim().isNotEmpty),
+      )
+      .toList();
+
+  void _scheduleAutoSave() {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(milliseconds: 450), () {
+      if (mounted && !_saving) {
+        _persistCart(showErrors: false);
+      }
+    });
+  }
+
+  Future<bool> _persistCart({bool showErrors = true}) async {
+    if (_loadingMenu) return false;
+
+    final authState = context.read<AuthCubit>().state;
+    if (authState is! AuthAuthenticated) return false;
+
+    final items = _cartItems();
+    setState(() => _syncing = true);
+
+    try {
       await context.read<TableSessionRepository>().updateParticipantItems(
             sessionId: widget.sessionId,
             customerId: widget.participant.customerId,
             items: items,
             accessToken: authState.waiter.token,
           );
+      return true;
+    } catch (e) {
+      if (showErrors && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  void _addDish(Dish dish) {
+    setState(() => _cart = OrderCart.addDish(_cart, dish));
+    _scheduleAutoSave();
+  }
+
+  void _decrementDish(Dish dish) {
+    setState(() => _cart = OrderCart.removeDish(_cart, dish));
+    _scheduleAutoSave();
+  }
+
+  Future<void> _save() async {
+    _autoSaveTimer?.cancel();
+    final authState = context.read<AuthCubit>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    setState(() => _saving = true);
+    try {
+      final saved = await _persistCart(showErrors: true);
+      if (!saved || !mounted) return;
 
       final reservations =
           await context.read<ReservationRepository>().getActiveReservations(
@@ -153,12 +353,8 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
 
       if (!mounted) return;
       Navigator.pop(context, updated ?? widget.reservation);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -188,8 +384,8 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
           ),
           actions: [
             TextButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
+              onPressed: (_saving || _syncing) ? null : _save,
+              child: _saving || _syncing
                   ? SizedBox(
                       width: 18,
                       height: 18,

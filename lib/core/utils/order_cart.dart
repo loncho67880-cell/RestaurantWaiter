@@ -149,5 +149,19 @@ class OrderCart {
     return updated;
   }
 
+  static bool hasSameQuantities(
+    Map<String, ReservationItem> left,
+    Map<String, ReservationItem> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (final entry in left.entries) {
+      final other = right[entry.key];
+      if (other == null || other.quantity != entry.value.quantity) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   static String _normalizeKey(String value) => value.toLowerCase().trim();
 }

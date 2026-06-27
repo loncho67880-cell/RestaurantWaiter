@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:restaurantwaiter/core/utils/reservation_datetime.dart';
 import 'package:restaurantwaiter/domain/models/reservation.dart';
+import 'package:restaurantwaiter/domain/models/table_session_snapshot.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/domain/models/table_session_participant.dart';
 import 'package:restaurantwaiter/domain/repositories/table_session_repository.dart';
+import 'package:restaurantwaiter/infrastructure/services/table_session_realtime_service.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
 import 'package:restaurantwaiter/presentation/blocs/reservations/edit_participant_order_screen.dart';
@@ -41,7 +43,8 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen>
   bool _markingReady = false;
   bool _cancelling = false;
   bool _refreshing = false;
-  Timer? _liveRefreshTimer;
+  Timer? _liveRefreshFallbackTimer;
+  StreamSubscription<TableSessionSnapshot>? _realtimeSub;
 
   bool get _needsLiveRefresh =>
       _reservation.isReadingQr || _reservation.hasTableSessionParticipants;
@@ -52,9 +55,12 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen>
     WidgetsBinding.instance.addObserver(this);
     _reservation = widget.reservation;
     if (_needsLiveRefresh) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _refreshReservation());
-      _liveRefreshTimer = Timer.periodic(
-        const Duration(seconds: 10),
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _refreshReservation();
+        _startLiveSync();
+      });
+      _liveRefreshFallbackTimer = Timer.periodic(
+        const Duration(seconds: 15),
         (_) {
           if (mounted) _refreshReservation(silent: true);
         },
@@ -64,7 +70,8 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen>
 
   @override
   void dispose() {
-    _liveRefreshTimer?.cancel();
+    _liveRefreshFallbackTimer?.cancel();
+    _stopLiveSync();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -259,33 +266,103 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen>
               );
       if (!mounted) return;
 
-      setState(() {
-        _reservation = Reservation(
-          id: _reservation.id,
-          branchId: _reservation.branchId,
-          tableId: _reservation.tableId,
-          tableNumber: _reservation.tableNumber,
-          floor: _reservation.floor,
-          reservationDate: _reservation.reservationDate,
-          guestCount: _reservation.guestCount,
-          status: _reservation.status,
-          preOrderStatus: _reservation.preOrderStatus,
-          notes: _reservation.notes,
-          customerName: _reservation.customerName,
-          customerPhone: _reservation.customerPhone,
-          items: participants.expand((p) => p.items).toList(),
-          participants: participants,
-          allParticipantsConfirmed: participants.isNotEmpty &&
-              participants.every((p) => p.isOrderConfirmed),
-          canFinalizeTable: participants.isNotEmpty &&
-              participants.every((p) => p.isOrderConfirmed) &&
-              _reservation.isReadingQr,
-        );
-        _refreshing = false;
-      });
+      _applyParticipants(participants, silent: silent);
     } catch (_) {
       if (mounted) setState(() => _refreshing = false);
     }
+  }
+
+  Future<void> _startLiveSync() async {
+    final authState = context.read<AuthCubit>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    final service = context.read<TableSessionRealtimeService>();
+    try {
+      service.setRefreshCallback(
+        _reservation.id,
+        () {
+          if (mounted) _refreshReservation(silent: true);
+        },
+      );
+
+      await _realtimeSub?.cancel();
+      _realtimeSub = service.updatesFor(_reservation.id).listen(
+        _onSessionSnapshot,
+        onError: (Object error, StackTrace stack) {
+          debugPrint('[ReservationDetail] realtime error: $error\n$stack');
+        },
+      );
+
+      await service.watchSession(
+        sessionId: _reservation.id,
+        accessToken: authState.waiter.token,
+      );
+
+      final latest = service.latestSnapshot(_reservation.id);
+      if (latest != null && mounted) {
+        _onSessionSnapshot(latest);
+      }
+    } catch (error, stack) {
+      debugPrint('[ReservationDetail] failed to start realtime: $error\n$stack');
+    }
+  }
+
+  Future<void> _stopLiveSync() async {
+    await _realtimeSub?.cancel();
+    _realtimeSub = null;
+    if (!mounted) return;
+    try {
+      final service = context.read<TableSessionRealtimeService>();
+      service.clearRefreshCallback(_reservation.id);
+      await service.unwatchSession(_reservation.id);
+    } catch (_) {
+      // Best effort during dispose.
+    }
+  }
+
+  void _onSessionSnapshot(TableSessionSnapshot snapshot) {
+    if (!mounted) return;
+    _applyParticipants(
+      snapshot.participants,
+      allParticipantsConfirmed: snapshot.allParticipantsConfirmed,
+      canFinalizeTable: snapshot.canFinalizeTable,
+      silent: true,
+    );
+  }
+
+  void _applyParticipants(
+    List<TableSessionParticipant> participants, {
+    bool? allParticipantsConfirmed,
+    bool? canFinalizeTable,
+    bool silent = false,
+  }) {
+    setState(() {
+      _reservation = Reservation(
+        id: _reservation.id,
+        branchId: _reservation.branchId,
+        tableId: _reservation.tableId,
+        tableNumber: _reservation.tableNumber,
+        floor: _reservation.floor,
+        reservationDate: _reservation.reservationDate,
+        guestCount: _reservation.guestCount,
+        status: _reservation.status,
+        preOrderStatus: _reservation.preOrderStatus,
+        notes: _reservation.notes,
+        customerName: _reservation.customerName,
+        customerPhone: _reservation.customerPhone,
+        items: participants.expand((p) => p.items).toList(),
+        participants: participants,
+        allParticipantsConfirmed: allParticipantsConfirmed ??
+            (participants.isNotEmpty &&
+                participants.every((p) => p.isOrderConfirmed)),
+        canFinalizeTable: canFinalizeTable ??
+            (participants.isNotEmpty &&
+                participants.every((p) => p.isOrderConfirmed) &&
+                _reservation.isReadingQr),
+      );
+      if (!silent) _refreshing = false;
+    });
+    context.read<WaiterReservationsCubit>().replaceReservation(_reservation);
   }
 
   Future<void> _editOrder() async {
