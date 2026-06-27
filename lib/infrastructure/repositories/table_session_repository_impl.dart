@@ -49,14 +49,38 @@ class TableSessionRepositoryImpl implements TableSessionRepository {
   }
 
   List<TableSessionParticipant> _parseParticipants(dynamic data) {
-    if (data is! Map<String, dynamic>) return const [];
-    final raw = data['participants'] ?? data['Participants'];
-    if (raw is! List) return const [];
+    final raw = _extractParticipantsList(data);
+    if (raw == null) return const [];
     return raw
         .whereType<Map>()
         .map((e) => TableSessionParticipant.fromJson(
               Map<String, dynamic>.from(e),
             ))
         .toList();
+  }
+
+  List<dynamic>? _extractParticipantsList(dynamic data) {
+    if (data is List) return data;
+    if (data is! Map<String, dynamic>) return null;
+
+    final direct = data['participants'] ?? data['Participants'];
+    if (direct is List) return direct;
+
+    for (final key in const [
+      'session',
+      'Session',
+      'tableSession',
+      'TableSession',
+      'data',
+      'Data',
+    ]) {
+      final nested = data[key];
+      if (nested is Map<String, dynamic>) {
+        final participants =
+            nested['participants'] ?? nested['Participants'];
+        if (participants is List) return participants;
+      }
+    }
+    return null;
   }
 }

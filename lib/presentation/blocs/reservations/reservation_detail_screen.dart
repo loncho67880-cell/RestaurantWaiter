@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:restaurantwaiter/core/utils/reservation_datetime.dart';
@@ -31,19 +33,46 @@ class ReservationDetailScreen extends StatefulWidget {
   State<ReservationDetailScreen> createState() => _ReservationDetailScreenState();
 }
 
-class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
+class _ReservationDetailScreenState extends State<ReservationDetailScreen>
+    with WidgetsBindingObserver {
   late Reservation _reservation;
   bool _confirmingArrival = false;
   bool _confirming = false;
   bool _markingReady = false;
   bool _cancelling = false;
+  bool _refreshing = false;
+  Timer? _liveRefreshTimer;
+
+  bool get _needsLiveRefresh =>
+      _reservation.isReadingQr || _reservation.hasTableSessionParticipants;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _reservation = widget.reservation;
-    if (_reservation.isReadingQr || _reservation.hasTableSessionParticipants) {
+    if (_needsLiveRefresh) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _refreshReservation());
+      _liveRefreshTimer = Timer.periodic(
+        const Duration(seconds: 10),
+        (_) {
+          if (mounted) _refreshReservation(silent: true);
+        },
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _liveRefreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _needsLiveRefresh) {
+      _refreshReservation(silent: true);
     }
   }
 
@@ -190,12 +219,20 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
   }
 
   Future<void> _editParticipantOrder(TableSessionParticipant participant) async {
+    await _refreshReservation(silent: true);
+    if (!mounted) return;
+
+    final freshParticipant = _reservation.participants
+            .where((p) => p.customerId == participant.customerId)
+            .firstOrNull ??
+        participant;
+
     final updated = await Navigator.push<Reservation>(
       context,
       MaterialPageRoute(
         builder: (_) => EditParticipantOrderScreen(
           sessionId: _reservation.id,
-          participant: participant,
+          participant: freshParticipant,
           reservation: _reservation,
         ),
       ),
@@ -203,42 +240,52 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
     if (updated != null && mounted) {
       setState(() => _reservation = updated);
       context.read<WaiterReservationsCubit>().replaceReservation(updated);
+    } else if (mounted && _needsLiveRefresh) {
+      await _refreshReservation(silent: true);
     }
   }
 
-  Future<void> _refreshReservation() async {
+  Future<void> _refreshReservation({bool silent = false}) async {
     final authState = context.read<AuthCubit>().state;
     if (authState is! AuthAuthenticated) return;
 
-    final participants = await context.read<TableSessionRepository>().getParticipants(
-          sessionId: _reservation.id,
-          accessToken: authState.waiter.token,
-        );
-    if (!mounted) return;
+    if (!silent) setState(() => _refreshing = true);
 
-    setState(() {
-      _reservation = Reservation(
-        id: _reservation.id,
-        branchId: _reservation.branchId,
-        tableId: _reservation.tableId,
-        tableNumber: _reservation.tableNumber,
-        floor: _reservation.floor,
-        reservationDate: _reservation.reservationDate,
-        guestCount: _reservation.guestCount,
-        status: _reservation.status,
-        preOrderStatus: _reservation.preOrderStatus,
-        notes: _reservation.notes,
-        customerName: _reservation.customerName,
-        customerPhone: _reservation.customerPhone,
-        items: participants.expand((p) => p.items).toList(),
-        participants: participants,
-        allParticipantsConfirmed: participants.isNotEmpty &&
-            participants.every((p) => p.isOrderConfirmed),
-        canFinalizeTable: participants.isNotEmpty &&
-            participants.every((p) => p.isOrderConfirmed) &&
-            _reservation.isReadingQr,
-      );
-    });
+    try {
+      final participants =
+          await context.read<TableSessionRepository>().getParticipants(
+                sessionId: _reservation.id,
+                accessToken: authState.waiter.token,
+              );
+      if (!mounted) return;
+
+      setState(() {
+        _reservation = Reservation(
+          id: _reservation.id,
+          branchId: _reservation.branchId,
+          tableId: _reservation.tableId,
+          tableNumber: _reservation.tableNumber,
+          floor: _reservation.floor,
+          reservationDate: _reservation.reservationDate,
+          guestCount: _reservation.guestCount,
+          status: _reservation.status,
+          preOrderStatus: _reservation.preOrderStatus,
+          notes: _reservation.notes,
+          customerName: _reservation.customerName,
+          customerPhone: _reservation.customerPhone,
+          items: participants.expand((p) => p.items).toList(),
+          participants: participants,
+          allParticipantsConfirmed: participants.isNotEmpty &&
+              participants.every((p) => p.isOrderConfirmed),
+          canFinalizeTable: participants.isNotEmpty &&
+              participants.every((p) => p.isOrderConfirmed) &&
+              _reservation.isReadingQr,
+        );
+        _refreshing = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   Future<void> _editOrder() async {
@@ -308,8 +355,32 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          if (_needsLiveRefresh)
+            IconButton(
+              onPressed: _refreshing ? null : () => _refreshReservation(),
+              icon: _refreshing
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.colorScheme.onPrimary,
+                      ),
+                    )
+                  : Icon(
+                      Icons.refresh_rounded,
+                      color: theme.colorScheme.onPrimary,
+                    ),
+            ),
+        ],
       ),
-      body: ListView(
+      body: RefreshIndicator(
+        onRefresh: _needsLiveRefresh
+            ? () => _refreshReservation()
+            : () async {},
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
             _SectionCard(
@@ -576,6 +647,7 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
               ),
           ],
         ),
+      ),
     );
   }
 

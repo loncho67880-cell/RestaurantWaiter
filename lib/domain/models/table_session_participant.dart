@@ -18,7 +18,12 @@ class TableSessionParticipant {
         (json['customerId'] ?? json['CustomerId'])?.toString() ?? '';
     final customerName =
         (json['customerName'] ?? json['CustomerName'])?.toString() ?? '';
-    final rawItems = json['items'] ?? json['Items'];
+    final rawItems = json['items'] ??
+        json['Items'] ??
+        json['orderItems'] ??
+        json['OrderItems'] ??
+        json['preOrderItems'] ??
+        json['PreOrderItems'];
 
     return TableSessionParticipant(
       customerId: customerId,

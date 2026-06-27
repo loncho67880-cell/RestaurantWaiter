@@ -32,7 +32,8 @@ class EditParticipantOrderScreen extends StatefulWidget {
       _EditParticipantOrderScreenState();
 }
 
-class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen> {
+class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
+    with WidgetsBindingObserver {
   late Map<String, ReservationItem> _cart;
   bool _loadingMenu = true;
   bool _saving = false;
@@ -43,16 +44,47 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
   @override
   void initState() {
     super.initState();
-    _cart = OrderCart.fromItems(widget.participant.items);
-    _loadMenu();
+    WidgetsBinding.instance.addObserver(this);
+    _cart = {};
+    _loadInitialData();
   }
 
-  Future<void> _loadMenu() async {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_saving) {
+      _loadInitialData();
+    }
+  }
+
+  Future<void> _loadInitialData() async {
     final authState = context.read<AuthCubit>().state;
     final appConfig = context.read<AppConfigCubit>().state;
     if (authState is! AuthAuthenticated) return;
 
+    if (_categories.isEmpty) {
+      setState(() {
+        _loadingMenu = true;
+        _error = null;
+      });
+    }
+
     try {
+      final participants =
+          await context.read<TableSessionRepository>().getParticipants(
+                sessionId: widget.sessionId,
+                accessToken: authState.waiter.token,
+              );
+      final participant = participants
+              .where((p) => p.customerId == widget.participant.customerId)
+              .firstOrNull ??
+          widget.participant;
+
       final categories = await context.read<MenuRepository>().loadCategories(
             appConfig.localeCode,
             appConfig.restaurantId,
@@ -64,7 +96,10 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
         _categories = categories;
         _selectedCategoryId =
             categories.isEmpty ? '' : categories.first.id;
-        _cart = OrderCart.reconcileWithMenu(_cart, categories);
+        _cart = OrderCart.reconcileWithMenu(
+          OrderCart.fromItems(participant.items),
+          categories,
+        );
         _loadingMenu = false;
       });
     } catch (e) {
