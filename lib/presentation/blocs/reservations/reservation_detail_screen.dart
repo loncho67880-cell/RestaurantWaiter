@@ -3,6 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:restaurantwaiter/core/utils/reservation_datetime.dart';
 import 'package:restaurantwaiter/domain/models/reservation.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
+import 'package:restaurantwaiter/domain/models/table_session_participant.dart';
+import 'package:restaurantwaiter/domain/repositories/table_session_repository.dart';
+import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
+import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
+import 'package:restaurantwaiter/presentation/blocs/reservations/edit_participant_order_screen.dart';
 import 'package:restaurantwaiter/presentation/blocs/reservations/edit_reservation_order_screen.dart';
 import 'package:restaurantwaiter/presentation/blocs/reservations/waiter_reservations_cubit.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -37,6 +42,9 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
   void initState() {
     super.initState();
     _reservation = widget.reservation;
+    if (_reservation.isReadingQr || _reservation.hasTableSessionParticipants) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _refreshReservation());
+    }
   }
 
   Future<void> _callCustomer(String phone) async {
@@ -151,7 +159,107 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
     }
   }
 
+  bool _confirmingParticipant = false;
+
+  Future<void> _confirmParticipant(String customerId) async {
+    setState(() => _confirmingParticipant = true);
+    final authState = context.read<AuthCubit>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    try {
+      await context.read<TableSessionRepository>().confirmParticipant(
+            sessionId: _reservation.id,
+            customerId: customerId,
+            accessToken: authState.waiter.token,
+          );
+      await _refreshReservation();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.read<AppConfigCubit>().translate(
+                'waiterConfirmParticipantSuccess',
+              )),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      _showError(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _confirmingParticipant = false);
+    }
+  }
+
+  Future<void> _editParticipantOrder(TableSessionParticipant participant) async {
+    final updated = await Navigator.push<Reservation>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditParticipantOrderScreen(
+          sessionId: _reservation.id,
+          participant: participant,
+          reservation: _reservation,
+        ),
+      ),
+    );
+    if (updated != null && mounted) {
+      setState(() => _reservation = updated);
+      context.read<WaiterReservationsCubit>().replaceReservation(updated);
+    }
+  }
+
+  Future<void> _refreshReservation() async {
+    final authState = context.read<AuthCubit>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    final participants = await context.read<TableSessionRepository>().getParticipants(
+          sessionId: _reservation.id,
+          accessToken: authState.waiter.token,
+        );
+    if (!mounted) return;
+
+    setState(() {
+      _reservation = Reservation(
+        id: _reservation.id,
+        branchId: _reservation.branchId,
+        tableId: _reservation.tableId,
+        tableNumber: _reservation.tableNumber,
+        floor: _reservation.floor,
+        reservationDate: _reservation.reservationDate,
+        guestCount: _reservation.guestCount,
+        status: _reservation.status,
+        preOrderStatus: _reservation.preOrderStatus,
+        notes: _reservation.notes,
+        customerName: _reservation.customerName,
+        customerPhone: _reservation.customerPhone,
+        items: participants.expand((p) => p.items).toList(),
+        participants: participants,
+        allParticipantsConfirmed: participants.isNotEmpty &&
+            participants.every((p) => p.isOrderConfirmed),
+        canFinalizeTable: participants.isNotEmpty &&
+            participants.every((p) => p.isOrderConfirmed) &&
+            _reservation.isReadingQr,
+      );
+    });
+  }
+
   Future<void> _editOrder() async {
+    if (_reservation.isReadingQr || _reservation.hasTableSessionParticipants) {
+      await _refreshReservation();
+      if (!mounted) return;
+      if (_reservation.isReadingQr || _reservation.hasTableSessionParticipants) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.read<AppConfigCubit>().translate(
+                    'waiterEditOrderTableSessionHint',
+                  ),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
+
     final updated = await Navigator.push<Reservation>(
       context,
       MaterialPageRoute(
@@ -291,6 +399,34 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
                 ],
               ),
             ),
+            if (_reservation.hasTableSessionParticipants) ...[
+              const SizedBox(height: 16),
+              _SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t('tableSessionParticipantsTitle'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ..._reservation.participants.map(
+                      (participant) => _ParticipantTile(
+                        participant: participant,
+                        onEdit: participant.isOrderConfirmed
+                            ? null
+                            : () => _editParticipantOrder(participant),
+                        onConfirm: participant.isOrderConfirmed
+                            ? null
+                            : () => _confirmParticipant(participant.customerId),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (_reservation.items.isNotEmpty) ...[
               const SizedBox(height: 16),
               _SectionCard(
@@ -446,6 +582,7 @@ class _ReservationDetailScreenState extends State<ReservationDetailScreen> {
   String _statusLabel(
     String Function(String, {Map<String, String>? replacements}) t,
   ) {
+    if (_reservation.isReadingQr) return t('statusReadingQr');
     if (_reservation.isInPreparation) return t('statusInPreparation');
     if (_reservation.isAwaitingWaiter) return t('statusPendingWaiter');
     if (_reservation.canWaiterConfirmArrival) return t('statusAwaitingArrival');
@@ -510,6 +647,106 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ParticipantTile extends StatelessWidget {
+  final TableSessionParticipant participant;
+  final VoidCallback? onEdit;
+  final VoidCallback? onConfirm;
+
+  const _ParticipantTile({
+    required this.participant,
+    this.onEdit,
+    this.onConfirm,
+  });
+
+  String _statusLabel(String Function(String) t) {
+    if (participant.isOrderConfirmed) {
+      return t('participantStatusConfirmed');
+    }
+    if (participant.status == 'Ordenando') {
+      return t('participantStatusOrdering');
+    }
+    return t('participantStatusReadingQr');
+  }
+
+  String _itemsSummary() {
+    if (participant.items.isEmpty) return '—';
+    return participant.items
+        .map((i) => '${i.quantity} ${i.dishName}')
+        .join(', ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final t = context.read<AppConfigCubit>().translate;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    participant.displayName,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Chip(
+                  label: Text(
+                    _statusLabel(t),
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: participant.isOrderConfirmed
+                      ? Colors.green.withValues(alpha: 0.12)
+                      : theme.colorScheme.primaryContainer,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _itemsSummary(),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+              ),
+            ),
+            if (onEdit != null || onConfirm != null) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  if (onEdit != null)
+                    TextButton.icon(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: Text(t('editParticipantOrderBtn')),
+                    ),
+                  if (onConfirm != null) ...[
+                    const Spacer(),
+                    FilledButton.tonal(
+                      onPressed: onConfirm,
+                      child: Text(
+                        t('confirmParticipantOrderBtn', replacements: {
+                          'name': participant.displayName,
+                        }),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

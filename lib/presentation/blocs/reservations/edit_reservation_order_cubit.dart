@@ -184,8 +184,18 @@ class EditReservationOrderCubit extends Cubit<EditReservationOrderState> {
           unitPrice: dish.price,
           additions: item.additions,
         );
-      } else if (item.dishId.isNotEmpty) {
-        reconciled[item.dishId] = item;
+      } else {
+        final key =
+            item.dishId.isNotEmpty ? item.dishId : item.dishName.trim();
+        if (key.isEmpty) continue;
+        final existing = reconciled[key];
+        reconciled[key] = ReservationItem(
+          dishId: item.dishId,
+          dishName: item.dishName,
+          quantity: (existing?.quantity ?? 0) + item.quantity,
+          unitPrice: item.unitPrice,
+          additions: item.additions,
+        );
       }
     }
     return reconciled;
@@ -196,7 +206,11 @@ class EditReservationOrderCubit extends Cubit<EditReservationOrderState> {
   /// Returns updated [Reservation] on success, or an error i18n key on failure.
   Future<Object?> save() async {
     final items = state.items
-        .where((item) => item.quantity > 0 && item.dishId.isNotEmpty)
+        .where(
+          (item) =>
+              item.quantity > 0 &&
+              (item.dishId.isNotEmpty || item.dishName.trim().isNotEmpty),
+        )
         .toList();
 
     if (items.isEmpty) {

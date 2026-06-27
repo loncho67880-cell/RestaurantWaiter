@@ -475,7 +475,8 @@ class _ReservationCard extends StatelessWidget {
   }
 
   Color _statusColor() {
-    if (reservation.isInPreparation) return Colors.teal;
+        if (reservation.isReadingQr) return Colors.purple;
+        if (reservation.isInPreparation) return Colors.teal;
     if (reservation.isAwaitingWaiter) return Colors.blue;
     if (reservation.canWaiterConfirmArrival) return Colors.deepOrange;
     return switch (reservation.status) {
@@ -488,6 +489,7 @@ class _ReservationCard extends StatelessWidget {
   String _statusLabel(
     String Function(String, {Map<String, String>? replacements}) t,
   ) {
+    if (reservation.isReadingQr) return t('statusReadingQr');
     if (reservation.isInPreparation) return t('statusInPreparation');
     if (reservation.isAwaitingWaiter) return t('statusPendingWaiter');
     if (reservation.canWaiterConfirmArrival) return t('statusAwaitingArrival');

@@ -1,18 +1,22 @@
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:restaurantwaiter/core/config/app_settings.dart';
+import 'package:restaurantwaiter/core/network/dio_client.dart';
 import 'package:restaurantwaiter/domain/repositories/branch_repository.dart';
 import 'package:restaurantwaiter/domain/repositories/order_repository.dart';
 import 'package:restaurantwaiter/domain/repositories/reservation_repository.dart';
 import 'package:restaurantwaiter/domain/repositories/table_layout_repository.dart';
+import 'package:restaurantwaiter/domain/repositories/table_qr_repository.dart';
+import 'package:restaurantwaiter/domain/repositories/table_session_repository.dart';
+import 'package:restaurantwaiter/infrastructure/repositories/table_session_repository_impl.dart';
 import 'package:restaurantwaiter/infrastructure/repositories/auth_repository_impl.dart';
 import 'package:restaurantwaiter/infrastructure/repositories/branch_repository_impl.dart';
 import 'package:restaurantwaiter/infrastructure/repositories/menu_repository.dart';
 import 'package:restaurantwaiter/infrastructure/repositories/order_repository_impl.dart';
 import 'package:restaurantwaiter/infrastructure/repositories/reservation_repository_impl.dart';
 import 'package:restaurantwaiter/infrastructure/repositories/table_layout_repository_impl.dart';
+import 'package:restaurantwaiter/infrastructure/repositories/table_qr_repository_impl.dart';
 import 'package:restaurantwaiter/infrastructure/services/google_auth_service.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/theme_restaurant.dart';
@@ -39,17 +43,8 @@ Future<void> main() async {
 
   final appSettings = await AppSettings.load();
 
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: appSettings.apiBaseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
-      headers: {
-        'Accept': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
-      },
-    ),
-  );
+  final dio = createDioClient(appSettings.apiBaseUrl);
+  await warmUpApiConnection(dio);
 
   final authRepository = AuthRepositoryImpl(
     dio: dio,
@@ -61,6 +56,8 @@ Future<void> main() async {
   final reservationRepository = ReservationRepositoryImpl(dio: dio);
   final orderRepository = OrderRepositoryImpl(dio: dio);
   final tableLayoutRepository = TableLayoutRepositoryImpl(dio: dio);
+  final tableQrRepository = TableQrRepositoryImpl(dio: dio);
+  final tableSessionRepository = TableSessionRepositoryImpl(dio: dio);
 
   runApp(
     MyApp(
@@ -70,6 +67,8 @@ Future<void> main() async {
       reservationRepository: reservationRepository,
       orderRepository: orderRepository,
       tableLayoutRepository: tableLayoutRepository,
+      tableQrRepository: tableQrRepository,
+      tableSessionRepository: tableSessionRepository,
     ),
   );
 }
@@ -81,6 +80,8 @@ class MyApp extends StatelessWidget {
   final ReservationRepository reservationRepository;
   final OrderRepository orderRepository;
   final TableLayoutRepository tableLayoutRepository;
+  final TableQrRepository tableQrRepository;
+  final TableSessionRepository tableSessionRepository;
 
   const MyApp({
     super.key,
@@ -90,6 +91,8 @@ class MyApp extends StatelessWidget {
     required this.reservationRepository,
     required this.orderRepository,
     required this.tableLayoutRepository,
+    required this.tableQrRepository,
+    required this.tableSessionRepository,
   });
 
   @override
@@ -104,6 +107,10 @@ class MyApp extends StatelessWidget {
         RepositoryProvider<OrderRepository>.value(value: orderRepository),
         RepositoryProvider<TableLayoutRepository>.value(
           value: tableLayoutRepository,
+        ),
+        RepositoryProvider<TableQrRepository>.value(value: tableQrRepository),
+        RepositoryProvider<TableSessionRepository>.value(
+          value: tableSessionRepository,
         ),
       ],
       child: MultiBlocProvider(
