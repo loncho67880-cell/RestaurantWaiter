@@ -126,7 +126,10 @@ class AppConfigCubit extends Cubit<AppConfigState> {
     String translated = state.localizedStrings[key] ?? key;
     if (replacements != null) {
       for (final entry in replacements.entries) {
-        translated = translated.replaceAll(entry.key, entry.value);
+        final placeholder = entry.key.startsWith('{')
+            ? entry.key
+            : '{${entry.key}}';
+        translated = translated.replaceAll(placeholder, entry.value);
       }
     }
     return translated;

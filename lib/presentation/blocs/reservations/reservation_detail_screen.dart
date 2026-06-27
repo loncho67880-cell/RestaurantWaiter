@@ -723,25 +723,28 @@ class _ParticipantTile extends StatelessWidget {
             ),
             if (onEdit != null || onConfirm != null) ...[
               const SizedBox(height: 10),
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (onEdit != null)
-                    TextButton.icon(
-                      onPressed: onEdit,
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: Text(t('editParticipantOrderBtn')),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: Text(t('editParticipantOrderBtn')),
+                      ),
                     ),
-                  if (onConfirm != null) ...[
-                    const Spacer(),
+                  if (onConfirm != null)
                     FilledButton.tonal(
                       onPressed: onConfirm,
                       child: Text(
                         t('confirmParticipantOrderBtn', replacements: {
                           'name': participant.displayName,
                         }),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ],
                 ],
               ),
             ],

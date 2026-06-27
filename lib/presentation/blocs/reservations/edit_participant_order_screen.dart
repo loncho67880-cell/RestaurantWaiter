@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:restaurantwaiter/core/utils/order_cart.dart';
 import 'package:restaurantwaiter/domain/models/category_menu.dart';
 import 'package:restaurantwaiter/domain/models/dish.dart';
 import 'package:restaurantwaiter/domain/models/reservation.dart';
@@ -32,7 +33,7 @@ class EditParticipantOrderScreen extends StatefulWidget {
 }
 
 class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen> {
-  late List<ReservationItem> _items;
+  late Map<String, ReservationItem> _cart;
   bool _loadingMenu = true;
   bool _saving = false;
   String? _error;
@@ -42,17 +43,7 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
   @override
   void initState() {
     super.initState();
-    _items = widget.participant.items
-        .map(
-          (i) => ReservationItem(
-            dishId: i.dishId,
-            dishName: i.dishName,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            additions: i.additions,
-          ),
-        )
-        .toList();
+    _cart = OrderCart.fromItems(widget.participant.items);
     _loadMenu();
   }
 
@@ -73,6 +64,7 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
         _categories = categories;
         _selectedCategoryId =
             categories.isEmpty ? '' : categories.first.id;
+        _cart = OrderCart.reconcileWithMenu(_cart, categories);
         _loadingMenu = false;
       });
     } catch (e) {
@@ -84,37 +76,14 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
     }
   }
 
-  int _quantityOf(String dishId) =>
-      _items.where((i) => i.dishId == dishId).firstOrNull?.quantity ?? 0;
+  int _quantityOf(Dish dish) => OrderCart.quantityForDish(_cart, dish);
 
   void _addDish(Dish dish) {
-    setState(() {
-      final idx = _items.indexWhere((i) => i.dishId == dish.id);
-      if (idx >= 0) {
-        _items[idx].quantity += 1;
-      } else {
-        _items.add(
-          ReservationItem(
-            dishId: dish.id,
-            dishName: dish.name,
-            quantity: 1,
-            unitPrice: dish.price,
-          ),
-        );
-      }
-    });
+    setState(() => _cart = OrderCart.addDish(_cart, dish));
   }
 
   void _decrementDish(Dish dish) {
-    setState(() {
-      final idx = _items.indexWhere((i) => i.dishId == dish.id);
-      if (idx < 0) return;
-      if (_items[idx].quantity <= 1) {
-        _items.removeAt(idx);
-      } else {
-        _items[idx].quantity -= 1;
-      }
-    });
+    setState(() => _cart = OrderCart.removeDish(_cart, dish));
   }
 
   Future<void> _save() async {
@@ -123,10 +92,18 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
 
     setState(() => _saving = true);
     try {
+      final items = _cart.values
+          .where(
+            (item) =>
+                item.quantity > 0 &&
+                (item.dishId.isNotEmpty || item.dishName.trim().isNotEmpty),
+          )
+          .toList();
+
       await context.read<TableSessionRepository>().updateParticipantItems(
             sessionId: widget.sessionId,
             customerId: widget.participant.customerId,
-            items: _items,
+            items: items,
             accessToken: authState.waiter.token,
           );
 
@@ -218,14 +195,14 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    onPressed: _quantityOf(dish.id) > 0
+                                    onPressed: _quantityOf(dish) > 0
                                         ? () => _decrementDish(dish)
                                         : null,
                                     icon: const Icon(
                                       Icons.remove_circle_outline,
                                     ),
                                   ),
-                                  Text('${_quantityOf(dish.id)}'),
+                                  Text('${_quantityOf(dish)}'),
                                   IconButton(
                                     onPressed: () => _addDish(dish),
                                     icon: const Icon(Icons.add_circle_outline),
