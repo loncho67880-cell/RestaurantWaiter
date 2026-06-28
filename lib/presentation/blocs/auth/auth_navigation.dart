@@ -9,15 +9,18 @@ String resolveLocaleCode(String? preferredLanguage) {
 }
 
 Future<void> applyWaiterLocale(BuildContext context, Waiter waiter) {
-  return context
-      .read<AppConfigCubit>()
-      .loadConfiguration(locale: resolveLocaleCode(waiter.preferredLanguage));
+  return context.read<AppConfigCubit>().loadRemoteConfiguration(
+        locale: resolveLocaleCode(waiter.preferredLanguage),
+      );
 }
 
 /// Waiters choose a branch after login, then go to active reservations.
 Future<void> navigateAfterAuth(BuildContext context, Waiter waiter) async {
   await applyWaiterLocale(context, waiter);
   if (!context.mounted) return;
+
+  final configState = context.read<AppConfigCubit>().state;
+  if (!configState.hasRemoteConfig) return;
 
   final defaultBranchId = waiter.defaultBranchId?.trim();
   if (defaultBranchId != null && defaultBranchId.isNotEmpty) {

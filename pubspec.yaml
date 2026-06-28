@@ -56,8 +56,9 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/cfg/
-    - assets/i18n/
+    - assets/cfg/appsettings.json
+    - assets/i18n/bootstrap_es.json
+    - assets/i18n/bootstrap_en.json
     - assets/images/logo.png
     - assets/images/google_logo.png
 

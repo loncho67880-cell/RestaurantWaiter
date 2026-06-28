@@ -1,0 +1,9 @@
+{
+  "appName": "Kiosco",
+  "loginSubtitle": "Inicia sesión para continuar",
+  "loginContinueGoogle": "Continuar con Google",
+  "loginErrorCanceled": "Inicio de sesión cancelado.",
+  "loginErrorNetwork": "No se pudo conectar con el servidor. Verifica tu red e intenta de nuevo.",
+  "appConfigLoadError": "No se pudo cargar la configuración del restaurante.",
+  "retry": "Reintentar"
+}

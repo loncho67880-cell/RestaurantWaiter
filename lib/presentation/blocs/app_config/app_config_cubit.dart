@@ -1,7 +1,10 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:restaurantwaiter/core/config/app_settings.dart';
+import 'package:restaurantwaiter/core/i18n/bootstrap_i18n.dart';
+import 'package:restaurantwaiter/domain/models/country.dart';
+import 'package:restaurantwaiter/domain/repositories/app_config_repository.dart';
 
 class AppConfigState {
   final ThemeData themeData;
@@ -9,9 +12,13 @@ class AppConfigState {
   final String restaurantName;
   final String localeCode;
   final bool isLoading;
+  final bool hasRemoteConfig;
   final String restaurantId;
   final String branchId;
   final String branchName;
+  final String countriesDefaultCode;
+  final List<Country> countries;
+  final String? errorMessage;
 
   AppConfigState({
     required this.themeData,
@@ -19,15 +26,19 @@ class AppConfigState {
     required this.restaurantName,
     required this.localeCode,
     this.isLoading = false,
+    this.hasRemoteConfig = false,
     this.restaurantId = '',
     this.branchId = '',
     this.branchName = '',
+    this.countriesDefaultCode = 'CO',
+    this.countries = const [],
+    this.errorMessage,
   });
 
   factory AppConfigState.initial() {
     return AppConfigState(
-      themeData: ThemeData.light(),
-      localizedStrings: {},
+      themeData: _genericTheme(),
+      localizedStrings: const {},
       restaurantName: '',
       localeCode: 'es',
       isLoading: true,
@@ -40,9 +51,14 @@ class AppConfigState {
     String? restaurantName,
     String? localeCode,
     bool? isLoading,
+    bool? hasRemoteConfig,
     String? restaurantId,
     String? branchId,
     String? branchName,
+    String? countriesDefaultCode,
+    List<Country>? countries,
+    String? errorMessage,
+    bool clearError = false,
   }) {
     return AppConfigState(
       themeData: themeData ?? this.themeData,
@@ -50,15 +66,34 @@ class AppConfigState {
       restaurantName: restaurantName ?? this.restaurantName,
       localeCode: localeCode ?? this.localeCode,
       isLoading: isLoading ?? this.isLoading,
+      hasRemoteConfig: hasRemoteConfig ?? this.hasRemoteConfig,
       restaurantId: restaurantId ?? this.restaurantId,
       branchId: branchId ?? this.branchId,
       branchName: branchName ?? this.branchName,
+      countriesDefaultCode: countriesDefaultCode ?? this.countriesDefaultCode,
+      countries: countries ?? this.countries,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    );
+  }
+
+  static ThemeData _genericTheme() {
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFFF5722)),
     );
   }
 }
 
 class AppConfigCubit extends Cubit<AppConfigState> {
-  AppConfigCubit() : super(AppConfigState.initial());
+  AppConfigCubit({
+    required AppConfigRepository appConfigRepository,
+    required AppSettings settings,
+  })  : _appConfigRepository = appConfigRepository,
+        _settings = settings,
+        super(AppConfigState.initial());
+
+  final AppConfigRepository _appConfigRepository;
+  final AppSettings _settings;
 
   void selectBranch({required String branchId, required String branchName}) {
     emit(state.copyWith(branchId: branchId, branchName: branchName));
@@ -68,23 +103,55 @@ class AppConfigCubit extends Cubit<AppConfigState> {
     emit(state.copyWith(branchId: '', branchName: ''));
   }
 
-  Future<void> loadConfiguration({String locale = 'es'}) async {
+  Future<void> loadBootstrap({String locale = 'es'}) async {
     try {
-      // 1. Cargar settings de la app (IDs de tenant)
-      final settingsStr = await rootBundle.loadString('assets/cfg/appsettings.json');
-      final Map<String, dynamic> settingsJson = json.decode(settingsStr);
-      final restaurantId = settingsJson['restaurantId'] as String? ?? '';
+      final strings = await BootstrapI18n.load(locale);
+      emit(AppConfigState(
+        themeData: AppConfigState._genericTheme(),
+        localizedStrings: strings,
+        restaurantName: strings['appName'] ?? 'Kiosco',
+        localeCode: locale,
+        isLoading: false,
+        hasRemoteConfig: false,
+        restaurantId: _settings.restaurantId,
+        branchId: state.branchId,
+        branchName: state.branchName,
+        errorMessage: null,
+      ));
+    } catch (e, stack) {
+      if (kDebugMode) {
+        debugPrint('[AppConfigCubit] loadBootstrap failed: $e\n$stack');
+      }
+      emit(state.copyWith(
+        themeData: AppConfigState._genericTheme(),
+        isLoading: false,
+        hasRemoteConfig: false,
+        localeCode: locale,
+        restaurantId: _settings.restaurantId,
+      ));
+    }
+  }
 
-      // 2. Cargar el JSON del Tema Dinámico
-      final themeStr = await rootBundle.loadString('assets/cfg/theme_config.json');
-      final Map<String, dynamic> themeJson = json.decode(themeStr);
+  Future<void> loadRemoteConfiguration({String locale = 'es'}) async {
+    emit(state.copyWith(isLoading: true, clearError: true));
 
-      final Color primary = Color(int.parse(themeJson['primaryColor'].replaceAll('#', '0xFF')));
-      final Color secondary = Color(int.parse(themeJson['secondaryColor'].replaceAll('#', '0xFF')));
-      final Color background = Color(int.parse(themeJson['backgroundColor'].replaceAll('#', '0xFF')));
-      final Color surface = Color(int.parse(themeJson['surfaceColor'].replaceAll('#', '0xFF')));
-      final Color onPrimary = Color(int.parse(themeJson['textOnPrimary'].replaceAll('#', '0xFF')));
-      final Color onBackground = Color(int.parse(themeJson['textOnBackground'].replaceAll('#', '0xFF')));
+    try {
+      final bundle = await _appConfigRepository.loadAppConfig(
+        restaurantId: _settings.restaurantId,
+        lang: locale,
+        appType: 'waiter',
+      );
+
+      final theme = bundle.theme;
+      final primary = _parseColor(theme.primaryColor, const Color(0xFFFF5722));
+      final secondary =
+          _parseColor(theme.secondaryColor, const Color(0xFFFFC107));
+      final background =
+          _parseColor(theme.backgroundColor, const Color(0xFFF5F5F5));
+      final surface = _parseColor(theme.surfaceColor, Colors.white);
+      final onPrimary = _parseColor(theme.textOnPrimary, Colors.white);
+      final onBackground =
+          _parseColor(theme.textOnBackground, const Color(0xFF212121));
 
       final customTheme = ThemeData(
         useMaterial3: true,
@@ -99,26 +166,63 @@ class AppConfigCubit extends Cubit<AppConfigState> {
           onSurface: onBackground,
         ),
         textTheme: const TextTheme(
-          displayLarge: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.black),
+          displayLarge: TextStyle(
+            fontSize: 48,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
           bodyLarge: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
         ),
       );
 
-      // 3. Cargar el JSON de Idioma (i18n)
-      final i18nStr = await rootBundle.loadString('assets/i18n/$locale.json');
-      final Map<String, dynamic> i18nJson = json.decode(i18nStr);
-      final Map<String, String> localized = i18nJson.map((key, value) => MapEntry(key, value.toString()));
-
       emit(AppConfigState(
         themeData: customTheme,
-        localizedStrings: localized,
-        restaurantName: themeJson['restaurantName'] ?? 'Restaurante',
+        localizedStrings: bundle.strings,
+        restaurantName: theme.restaurantName.isNotEmpty
+            ? theme.restaurantName
+            : bundle.restaurantName,
         localeCode: locale,
         isLoading: false,
-        restaurantId: restaurantId,
+        hasRemoteConfig: true,
+        restaurantId: _settings.restaurantId,
+        branchId: state.branchId,
+        branchName: state.branchName,
+        countriesDefaultCode: bundle.countriesDefaultCode,
+        countries: bundle.countries,
+        errorMessage: null,
       ));
-    } catch (e) {
-      emit(state.copyWith(isLoading: false));
+    } catch (e, stack) {
+      if (kDebugMode) {
+        debugPrint('[AppConfigCubit] loadRemoteConfiguration failed: $e\n$stack');
+      }
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: 'appConfigLoadError',
+      ));
+    }
+  }
+
+  Future<void> clearRemoteConfiguration() async {
+    await loadBootstrap(locale: state.localeCode);
+  }
+
+  static Color _parseColor(Object? value, Color fallback) {
+    if (value == null) return fallback;
+    final raw = value.toString().trim();
+    if (raw.isEmpty) return fallback;
+
+    try {
+      if (raw.startsWith('#')) {
+        final hex = raw.replaceFirst('#', '');
+        final normalized = hex.length == 6 ? 'FF$hex' : hex;
+        return Color(int.parse(normalized, radix: 16));
+      }
+      if (raw.startsWith('0x')) {
+        return Color(int.parse(raw));
+      }
+      return Color(int.parse(raw, radix: 16));
+    } catch (_) {
+      return fallback;
     }
   }
 
@@ -126,9 +230,8 @@ class AppConfigCubit extends Cubit<AppConfigState> {
     String translated = state.localizedStrings[key] ?? key;
     if (replacements != null) {
       for (final entry in replacements.entries) {
-        final placeholder = entry.key.startsWith('{')
-            ? entry.key
-            : '{${entry.key}}';
+        final placeholder =
+            entry.key.startsWith('{') ? entry.key : '{${entry.key}}';
         translated = translated.replaceAll(placeholder, entry.value);
       }
     }

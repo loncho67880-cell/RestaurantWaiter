@@ -3,8 +3,9 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
+import 'package:restaurantwaiter/core/auth/auth_token_provider.dart';
 
-Dio createDioClient(String baseUrl) {
+Dio createDioClient(String baseUrl, {AuthTokenProvider? tokenProvider}) {
   final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
@@ -21,9 +22,29 @@ Dio createDioClient(String baseUrl) {
   );
 
   _configureNativeHttpClient(dio);
+  if (tokenProvider != null) {
+    dio.interceptors.add(AuthInterceptor(tokenProvider));
+  }
   dio.interceptors.add(RetryInterceptor(dio));
 
   return dio;
+}
+
+class AuthInterceptor extends Interceptor {
+  AuthInterceptor(this._tokenProvider);
+
+  final AuthTokenProvider _tokenProvider;
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    final token = _tokenProvider.token;
+    if (token != null &&
+        token.isNotEmpty &&
+        !options.headers.containsKey('Authorization')) {
+      options.headers['Authorization'] = 'Bearer $token';
+    }
+    handler.next(options);
+  }
 }
 
 void _configureNativeHttpClient(Dio dio) {

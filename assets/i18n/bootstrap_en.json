@@ -1,0 +1,9 @@
+{
+  "appName": "Waiter",
+  "loginSubtitle": "Sign in to continue",
+  "loginContinueGoogle": "Continue with Google",
+  "loginErrorCanceled": "Sign-in canceled.",
+  "loginErrorNetwork": "Could not connect to the server. Check your network and try again.",
+  "appConfigLoadError": "Could not load restaurant configuration.",
+  "retry": "Retry"
+}
