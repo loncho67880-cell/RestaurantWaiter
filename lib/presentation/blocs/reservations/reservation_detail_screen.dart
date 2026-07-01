@@ -833,72 +833,84 @@ class _ParticipantTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final t = context.read<AppConfigCubit>().translate;
+    final textColor = theme.colorScheme.onSurface;
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    participant.displayName,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  participant.displayName,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
                   ),
                 ),
-                Chip(
-                  label: Text(
-                    _statusLabel(t),
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: participant.isOrderConfirmed
-                      ? Colors.green.withValues(alpha: 0.12)
-                      : theme.colorScheme.primaryContainer,
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              _itemsSummary(),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
               ),
-            ),
-            if (onEdit != null || onConfirm != null) ...[
-              const SizedBox(height: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (onEdit != null)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: onEdit,
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        label: Text(t('editParticipantOrderBtn')),
-                      ),
-                    ),
-                  if (onConfirm != null)
-                    FilledButton.tonal(
-                      onPressed: onConfirm,
-                      child: Text(
-                        t('confirmParticipantOrderBtn', replacements: {
-                          'name': participant.displayName,
-                        }),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                ],
+              Chip(
+                label: Text(
+                  _statusLabel(t),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: participant.isOrderConfirmed
+                        ? Colors.green.shade800
+                        : theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: participant.isOrderConfirmed
+                    ? Colors.green.withValues(alpha: 0.12)
+                    : theme.colorScheme.primaryContainer,
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _itemsSummary(),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: textColor.withValues(alpha: 0.75),
+            ),
+          ),
+          if (onEdit != null || onConfirm != null) ...[
+            const SizedBox(height: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (onEdit != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: Text(t('editParticipantOrderBtn')),
+                    ),
+                  ),
+                if (onConfirm != null)
+                  FilledButton.tonal(
+                    onPressed: onConfirm,
+                    child: Text(
+                      t('confirmParticipantOrderBtn', replacements: {
+                        'name': participant.displayName,
+                      }),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+              ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
