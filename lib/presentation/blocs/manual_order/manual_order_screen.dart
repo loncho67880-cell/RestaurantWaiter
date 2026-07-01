@@ -178,12 +178,11 @@ class _ManualOrderViewState extends State<_ManualOrderView> {
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   sliver: SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 190,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      childAspectRatio: 0.82,
+                      childAspectRatio: 0.85,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -334,16 +333,16 @@ class _DishCard extends StatelessWidget {
 
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: theme.colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
                 child: Image.network(
                   dish.imageUrl,
                   width: double.infinity,
@@ -356,32 +355,33 @@ class _DishCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               dish.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
             Text(
               '\$${dish.price.toStringAsFixed(0)}',
               style: TextStyle(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.bold,
+                fontSize: 13,
               ),
             ),
             const SizedBox(height: 4),
             if (quantity == 0)
               SizedBox(
                 width: double.infinity,
-                height: 36,
+                height: 32,
                 child: OutlinedButton(
                   onPressed: () => cubit.addDish(dish),
                   style: OutlinedButton.styleFrom(
                     padding: EdgeInsets.zero,
                     foregroundColor: theme.colorScheme.primary,
                   ),
-                  child: const Icon(Icons.add_rounded, size: 20),
+                  child: const Icon(Icons.add_rounded, size: 18),
                 ),
               )
             else
@@ -394,7 +394,7 @@ class _DishCard extends StatelessWidget {
                   ),
                   Text('$quantity',
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16)),
+                          fontWeight: FontWeight.bold, fontSize: 15)),
                   _QtyButton(
                     icon: Icons.add_rounded,
                     onTap: () => cubit.addDish(dish),

@@ -284,6 +284,12 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
       )
       .toList();
 
+  int get _cartTotalItems =>
+      _cartItems().fold(0, (sum, item) => sum + item.quantity);
+
+  double get _cartTotal =>
+      _cartItems().fold(0.0, (sum, item) => sum + item.subtotal);
+
   void _scheduleAutoSave() {
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer(const Duration(milliseconds: 450), () {
@@ -410,6 +416,13 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
                     : ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
+                          if (_cartItems().isNotEmpty)
+                            _OrderSummaryCard(
+                              items: _cartItems(),
+                              totalItems: _cartTotalItems,
+                              total: _cartTotal,
+                            ),
+                          if (_cartItems().isNotEmpty) const SizedBox(height: 12),
                           MenuCategorySelector(
                             categories: _categories,
                             selectedCategoryId: _selectedCategoryId,
@@ -444,6 +457,101 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
                           ),
                         ],
                       ),
+      ),
+    );
+  }
+}
+
+class _OrderSummaryCard extends StatelessWidget {
+  final List<ReservationItem> items;
+  final int totalItems;
+  final double total;
+
+  const _OrderSummaryCard({
+    required this.items,
+    required this.totalItems,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final t = context.read<AppConfigCubit>().translate;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.shopping_bag_outlined,
+                size: 20,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  t('waiterEditOrderCurrent'),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Text(
+                t('manualOrderItemsCount',
+                    replacements: {'{count}': '$totalItems'}),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Text(
+                    '${item.quantity}×',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(item.dishName)),
+                  Text(
+                    '\$${item.subtotal.toStringAsFixed(0)}',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 20),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${t('preOrderTotal')} \$${total.toStringAsFixed(0)}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
