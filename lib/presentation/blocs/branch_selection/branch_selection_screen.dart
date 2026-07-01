@@ -19,6 +19,16 @@ class BranchSelectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final appConfig = context.read<AppConfigCubit>().state;
 
+    if (appConfig.restaurantId.trim().isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        Navigator.pushReplacementNamed(context, '/restaurant-select');
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return BlocProvider(
       create: (_) => BranchSelectionCubit(
         branchRepository: context.read<BranchRepository>(),

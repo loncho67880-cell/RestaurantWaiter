@@ -5,5 +5,9 @@
   "loginErrorCanceled": "Inicio de sesión cancelado.",
   "loginErrorNetwork": "No se pudo conectar con el servidor. Verifica tu red e intenta de nuevo.",
   "appConfigLoadError": "No se pudo cargar la configuración del restaurante.",
+  "restaurantRequiredError": "No tienes restaurantes asignados. Contacte al administrador.",
+  "selectRestaurantTitle": "Seleccionar restaurante",
+  "selectRestaurantSubtitle": "Elige el restaurante en el que vas a trabajar hoy",
+  "continueBtn": "Continuar",
   "retry": "Reintentar"
 }

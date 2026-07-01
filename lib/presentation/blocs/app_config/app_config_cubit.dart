@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:restaurantwaiter/core/config/app_settings.dart';
 import 'package:restaurantwaiter/core/i18n/bootstrap_i18n.dart';
 import 'package:restaurantwaiter/domain/models/country.dart';
 import 'package:restaurantwaiter/domain/repositories/app_config_repository.dart';
@@ -87,13 +86,20 @@ class AppConfigState {
 class AppConfigCubit extends Cubit<AppConfigState> {
   AppConfigCubit({
     required AppConfigRepository appConfigRepository,
-    required AppSettings settings,
   })  : _appConfigRepository = appConfigRepository,
-        _settings = settings,
         super(AppConfigState.initial());
 
   final AppConfigRepository _appConfigRepository;
-  final AppSettings _settings;
+
+  void selectRestaurant({
+    required String restaurantId,
+    required String restaurantName,
+  }) {
+    emit(state.copyWith(
+      restaurantId: restaurantId,
+      restaurantName: restaurantName,
+    ));
+  }
 
   void selectBranch({required String branchId, required String branchName}) {
     emit(state.copyWith(branchId: branchId, branchName: branchName));
@@ -101,6 +107,15 @@ class AppConfigCubit extends Cubit<AppConfigState> {
 
   void clearBranch() {
     emit(state.copyWith(branchId: '', branchName: ''));
+  }
+
+  void clearRestaurant() {
+    emit(state.copyWith(
+      restaurantId: '',
+      restaurantName: '',
+      branchId: '',
+      branchName: '',
+    ));
   }
 
   Future<void> loadBootstrap({String locale = 'es'}) async {
@@ -113,9 +128,9 @@ class AppConfigCubit extends Cubit<AppConfigState> {
         localeCode: locale,
         isLoading: false,
         hasRemoteConfig: false,
-        restaurantId: _settings.restaurantId,
-        branchId: state.branchId,
-        branchName: state.branchName,
+        restaurantId: '',
+        branchId: '',
+        branchName: '',
         errorMessage: null,
       ));
     } catch (e, stack) {
@@ -127,17 +142,29 @@ class AppConfigCubit extends Cubit<AppConfigState> {
         isLoading: false,
         hasRemoteConfig: false,
         localeCode: locale,
-        restaurantId: _settings.restaurantId,
+        restaurantId: '',
+        restaurantName: '',
+        branchId: '',
+        branchName: '',
       ));
     }
   }
 
   Future<void> loadRemoteConfiguration({String locale = 'es'}) async {
+    final restaurantId = state.restaurantId.trim();
+    if (restaurantId.isEmpty) {
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: 'restaurantRequiredError',
+      ));
+      return;
+    }
+
     emit(state.copyWith(isLoading: true, clearError: true));
 
     try {
       final bundle = await _appConfigRepository.loadAppConfig(
-        restaurantId: _settings.restaurantId,
+        restaurantId: restaurantId,
         lang: locale,
         appType: 'waiter',
       );
@@ -184,7 +211,7 @@ class AppConfigCubit extends Cubit<AppConfigState> {
         localeCode: locale,
         isLoading: false,
         hasRemoteConfig: true,
-        restaurantId: _settings.restaurantId,
+        restaurantId: restaurantId,
         branchId: state.branchId,
         branchName: state.branchName,
         countriesDefaultCode: bundle.countriesDefaultCode,
@@ -203,6 +230,7 @@ class AppConfigCubit extends Cubit<AppConfigState> {
   }
 
   Future<void> clearRemoteConfiguration() async {
+    clearRestaurant();
     await loadBootstrap(locale: state.localeCode);
   }
 

@@ -5,5 +5,9 @@
   "loginErrorCanceled": "Sign-in canceled.",
   "loginErrorNetwork": "Could not connect to the server. Check your network and try again.",
   "appConfigLoadError": "Could not load restaurant configuration.",
+  "restaurantRequiredError": "You have no assigned restaurants. Contact your administrator.",
+  "selectRestaurantTitle": "Select restaurant",
+  "selectRestaurantSubtitle": "Choose the restaurant you will work at today",
+  "continueBtn": "Continue",
   "retry": "Retry"
 }
