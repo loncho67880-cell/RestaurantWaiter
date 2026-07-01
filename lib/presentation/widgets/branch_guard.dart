@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 
-/// Redirects to branch selection when no branch has been chosen yet.
+/// Redirects to restaurant or branch selection when not configured yet.
 class BranchGuard extends StatelessWidget {
   final Widget child;
 
@@ -10,8 +10,21 @@ class BranchGuard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final branchId = context.watch<AppConfigCubit>().state.branchId;
-    if (branchId.trim().isEmpty) {
+    final config = context.watch<AppConfigCubit>().state;
+    final restaurantId = config.restaurantId.trim();
+    final branchId = config.branchId.trim();
+
+    if (restaurantId.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        Navigator.pushReplacementNamed(context, '/restaurant-select');
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (branchId.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         Navigator.pushReplacementNamed(context, '/branch-select');
@@ -20,6 +33,7 @@ class BranchGuard extends StatelessWidget {
         body: Center(child: CircularProgressIndicator()),
       );
     }
+
     return child;
   }
 }

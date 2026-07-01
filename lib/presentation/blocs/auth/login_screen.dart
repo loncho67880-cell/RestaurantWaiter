@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:restaurantwaiter/domain/models/waiter_restaurant.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/theme_restaurant.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_navigation.dart';
@@ -26,7 +27,8 @@ class LoginScreen extends StatelessWidget {
             listenWhen: (previous, current) =>
                 current is AuthAuthenticated && previous is! AuthAuthenticated,
             listener: (context, state) {
-              navigateAfterAuth(context, (state as AuthAuthenticated).waiter);
+              final auth = state as AuthAuthenticated;
+              navigateAfterAuth(context, auth.waiter, auth.restaurants);
             },
           ),
           BlocListener<AuthCubit, AuthState>(
@@ -43,14 +45,19 @@ class LoginScreen extends StatelessWidget {
             final isAuthLoading = authState is AuthLoading;
             final authenticatedWaiter =
                 authState is AuthAuthenticated ? authState.waiter : null;
+            final authenticatedRestaurants = authState is AuthAuthenticated
+                ? authState.restaurants
+                : const <WaiterRestaurant>[];
+            final needsRemoteConfig = authenticatedWaiter != null &&
+                (authenticatedRestaurants.length <= 1);
             final isConfigLoading =
-                authenticatedWaiter != null && configCubit.state.isLoading;
-            final configError = authenticatedWaiter != null &&
+                needsRemoteConfig && configCubit.state.isLoading;
+            final configError = needsRemoteConfig &&
                 !configCubit.state.hasRemoteConfig &&
                 configCubit.state.errorMessage != null;
 
             if (isConfigLoading ||
-                (authenticatedWaiter != null &&
+                (needsRemoteConfig &&
                     !configCubit.state.hasRemoteConfig &&
                     configCubit.state.errorMessage == null)) {
               return Center(
