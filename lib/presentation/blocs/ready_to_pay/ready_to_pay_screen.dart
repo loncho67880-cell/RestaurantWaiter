@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:restaurantwaiter/core/utils/reservation_datetime.dart';
+import 'package:restaurantwaiter/core/utils/theme_contrast.dart';
 import 'package:restaurantwaiter/domain/models/reservation.dart';
 import 'package:restaurantwaiter/domain/repositories/order_repository.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
@@ -168,27 +169,36 @@ class _ReadyCard extends StatelessWidget {
     final t = context.read<AppConfigCubit>().translate;
     final appConfig = context.read<AppConfigCubit>().state;
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: table + time
-            Row(
-              children: [
-                Icon(Icons.table_restaurant_rounded, color: theme.colorScheme.primary, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${t('tableNum')} ${reservation.tableNumber}  ·  ${t('floor')} ${reservation.floor}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    return Theme(
+      data: ThemeContrast.lightCardTheme(theme),
+      child: Card(
+        elevation: 2,
+        color: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: table + time
+              Row(
+                children: [
+                  Icon(Icons.table_restaurant_rounded,
+                      color: theme.colorScheme.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${t('tableNum')} ${reservation.tableNumber}  ·  ${t('floor')} ${reservation.floor}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: ThemeContrast.onLight,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -218,23 +228,26 @@ class _ReadyCard extends StatelessWidget {
             // Date + guests
             Row(
               children: [
-                Icon(Icons.schedule_rounded, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+                const Icon(Icons.schedule_rounded,
+                    size: 16, color: ThemeContrast.onLightMuted),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    formatReservationDateTime(reservation.reservationDate, appConfig.localeCode),
-                    style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                    formatReservationDateTime(
+                        reservation.reservationDate, appConfig.localeCode),
+                    style: const TextStyle(color: ThemeContrast.onLightMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 12),
-                Icon(Icons.people_rounded, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+                const Icon(Icons.people_rounded,
+                    size: 16, color: ThemeContrast.onLightMuted),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     '${reservation.guestCount} ${t('guestCount').toLowerCase()}',
-                    style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                    style: const TextStyle(color: ThemeContrast.onLightMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -252,12 +265,26 @@ class _ReadyCard extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
                     children: [
-                      Text('${item.quantity}×', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                      Text(
+                        '${item.quantity}×',
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(item.dishName)),
+                      Expanded(
+                        child: Text(
+                          item.dishName,
+                          style: const TextStyle(color: ThemeContrast.onLight),
+                        ),
+                      ),
                       Text(
                         '\$${item.subtotal.toStringAsFixed(0)}',
-                        style: const TextStyle(fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: ThemeContrast.onLight,
+                        ),
                       ),
                     ],
                   ),
@@ -305,6 +332,7 @@ class _ReadyCard extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

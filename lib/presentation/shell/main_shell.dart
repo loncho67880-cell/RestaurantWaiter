@@ -43,7 +43,6 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final t = context.read<AppConfigCubit>().translate;
 
     return BlocBuilder<AuthCubit, AuthState>(
@@ -67,27 +66,23 @@ class _MainShellState extends State<MainShell> {
           bottomNavigationBar: NavigationBar(
             selectedIndex: selectedIndex,
             onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-            backgroundColor: theme.colorScheme.surface,
-            indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+            surfaceTintColor: Colors.transparent,
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             destinations: [
               NavigationDestination(
                 icon: const Icon(Icons.event_note_rounded),
-                selectedIcon: Icon(Icons.event_note_rounded,
-                    color: theme.colorScheme.primary),
+                selectedIcon: const Icon(Icons.event_note_rounded),
                 label: t('navReservations'),
               ),
               if (isAdmin)
                 NavigationDestination(
                   icon: const Icon(Icons.grid_view_rounded),
-                  selectedIcon: Icon(Icons.grid_view_rounded,
-                      color: theme.colorScheme.primary),
+                  selectedIcon: const Icon(Icons.grid_view_rounded),
                   label: t('navConfigTables'),
                 ),
               NavigationDestination(
                 icon: const Icon(Icons.payments_rounded),
-                selectedIcon: Icon(Icons.payments_rounded,
-                    color: theme.colorScheme.primary),
+                selectedIcon: const Icon(Icons.payments_rounded),
                 label: t('navReadyToPay'),
               ),
             ],

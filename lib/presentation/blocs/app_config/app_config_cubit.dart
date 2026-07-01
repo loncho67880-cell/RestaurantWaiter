@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:restaurantwaiter/core/utils/theme_contrast.dart';
 import 'package:restaurantwaiter/core/i18n/bootstrap_i18n.dart';
 import 'package:restaurantwaiter/domain/models/country.dart';
 import 'package:restaurantwaiter/domain/repositories/app_config_repository.dart';
@@ -191,6 +192,12 @@ class AppConfigCubit extends Cubit<AppConfigState> {
           surface: surface,
           onPrimary: onPrimary,
           onSurface: onBackground,
+        ),
+        cardTheme: ThemeContrast.cardTheme(surface),
+        navigationBarTheme: ThemeContrast.navigationBarTheme(
+          surface: surface,
+          primary: primary,
+          onBackground: onBackground,
         ),
         textTheme: const TextTheme(
           displayLarge: TextStyle(
