@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.restaurantmobile"
+    namespace = "com.example.restaurant_waiter"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
