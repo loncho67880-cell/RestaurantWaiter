@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:restaurantwaiter/core/utils/theme_contrast.dart';
 import 'package:restaurantwaiter/domain/models/category_menu.dart';
 
 import 'menu_category_visual.dart';
@@ -66,7 +67,7 @@ class _CategoryTile extends StatelessWidget {
         : visual.accent.withValues(alpha: 0.12);
     final iconColor = selected ? theme.colorScheme.onPrimary : visual.accent;
     final labelColor =
-        selected ? primary : theme.colorScheme.onSurface.withValues(alpha: 0.65);
+        selected ? primary : ThemeContrast.mutedText(theme);
 
     return Material(
       color: Colors.transparent,

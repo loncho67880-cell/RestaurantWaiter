@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:restaurantwaiter/core/utils/order_cart.dart';
+import 'package:restaurantwaiter/core/utils/theme_contrast.dart';
 import 'package:restaurantwaiter/domain/models/category_menu.dart';
 import 'package:restaurantwaiter/domain/models/dish.dart';
 import 'package:restaurantwaiter/domain/models/reservation.dart';
@@ -431,29 +432,52 @@ class _EditParticipantOrderScreenState extends State<EditParticipantOrderScreen>
                           ),
                           const SizedBox(height: 12),
                           ...category.dishes.map(
-                            (dish) => ListTile(
-                              title: Text(dish.name),
-                              subtitle:
-                                  Text('\$${dish.price.toStringAsFixed(0)}'),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    onPressed: _quantityOf(dish) > 0
-                                        ? () => _decrementDish(dish)
-                                        : null,
-                                    icon: const Icon(
-                                      Icons.remove_circle_outline,
+                            (dish) {
+                              final qty = _quantityOf(dish);
+                              return ListTile(
+                                title: Text(
+                                  dish.name,
+                                  style: TextStyle(
+                                    color: ThemeContrast.bodyText(theme),
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '\$${dish.price.toStringAsFixed(0)}',
+                                  style: TextStyle(
+                                    color: ThemeContrast.mutedText(theme),
+                                  ),
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      onPressed: qty > 0
+                                          ? () => _decrementDish(dish)
+                                          : null,
+                                      icon: Icon(
+                                        Icons.remove_circle_outline,
+                                        color: ThemeContrast.iconOnSurface(theme),
+                                      ),
                                     ),
-                                  ),
-                                  Text('${_quantityOf(dish)}'),
-                                  IconButton(
-                                    onPressed: () => _addDish(dish),
-                                    icon: const Icon(Icons.add_circle_outline),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                    Text(
+                                      '$qty',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: ThemeContrast.bodyText(theme),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () => _addDish(dish),
+                                      icon: Icon(
+                                        Icons.add_circle_outline,
+                                        color: ThemeContrast.iconOnSurface(theme),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -512,7 +536,7 @@ class _OrderSummaryCard extends StatelessWidget {
                     replacements: {'{count}': '$totalItems'}),
                 style: TextStyle(
                   fontSize: 12,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                  color: ThemeContrast.mutedText(theme),
                 ),
               ),
             ],
@@ -531,10 +555,18 @@ class _OrderSummaryCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(item.dishName)),
+                  Expanded(
+                    child: Text(
+                      item.dishName,
+                      style: TextStyle(color: ThemeContrast.bodyText(theme)),
+                    ),
+                  ),
                   Text(
                     '\$${item.subtotal.toStringAsFixed(0)}',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: ThemeContrast.bodyText(theme),
+                    ),
                   ),
                 ],
               ),

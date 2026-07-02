@@ -181,32 +181,13 @@ class AppConfigCubit extends Cubit<AppConfigState> {
       final onBackground =
           _parseColor(theme.textOnBackground, const Color(0xFF212121));
 
-      final customTheme = ThemeData(
-        useMaterial3: true,
-        primaryColor: primary,
-        scaffoldBackgroundColor: background,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: primary,
-          primary: primary,
-          secondary: secondary,
-          surface: surface,
-          onPrimary: onPrimary,
-          onSurface: onBackground,
-        ),
-        cardTheme: ThemeContrast.cardTheme(surface),
-        navigationBarTheme: ThemeContrast.navigationBarTheme(
-          surface: surface,
-          primary: primary,
-          onBackground: onBackground,
-        ),
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(
-            fontSize: 48,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-          bodyLarge: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
-        ),
+      final customTheme = ThemeContrast.buildRemoteTheme(
+        primary: primary,
+        secondary: secondary,
+        background: background,
+        surface: surface,
+        onPrimary: onPrimary,
+        textOnBackground: onBackground,
       );
 
       emit(AppConfigState(
