@@ -8,6 +8,7 @@ import 'package:restaurantwaiter/domain/models/branch.dart';
 import 'package:restaurantwaiter/domain/repositories/branch_repository.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
+import 'package:restaurantwaiter/presentation/blocs/auth/auth_navigation.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
 import 'package:restaurantwaiter/presentation/blocs/branch_selection/branch_selection_cubit.dart';
 import 'package:restaurantwaiter/presentation/blocs/branch_selection/branch_selection_state.dart';
@@ -19,9 +20,18 @@ class BranchSelectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final appConfig = context.read<AppConfigCubit>().state;
 
-    if (appConfig.restaurantId.trim().isEmpty) {
+    final authState = context.read<AuthCubit>().state;
+    if (authState is! AuthAuthenticated ||
+        appConfig.restaurantId.trim().isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
+        if (authState is! AuthAuthenticated) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/login',
+            (route) => false,
+          );
+          return;
+        }
         Navigator.pushReplacementNamed(context, '/restaurant-select');
       });
       return const Scaffold(
@@ -249,11 +259,7 @@ class _BranchSelectionViewState extends State<_BranchSelectionView> {
   }
 
   void _continue(BuildContext context, Branch branch) {
-    context.read<AppConfigCubit>().selectBranch(
-          branchId: branch.id,
-          branchName: branch.name,
-        );
-    Navigator.pushReplacementNamed(context, '/home');
+    navigateToHomeAfterBranch(context, branch);
   }
 
   @override

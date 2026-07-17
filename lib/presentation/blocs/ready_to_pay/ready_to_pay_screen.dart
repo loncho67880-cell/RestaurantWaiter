@@ -25,6 +25,7 @@ class ReadyToPayScreen extends StatelessWidget {
 
     return BranchGuard(
       child: BlocProvider(
+        key: ValueKey('ready-to-pay-${appConfig.branchId}'),
         create: (_) => ReadyToPayCubit(
           orderRepository: context.read<OrderRepository>(),
           branchId: appConfig.branchId,

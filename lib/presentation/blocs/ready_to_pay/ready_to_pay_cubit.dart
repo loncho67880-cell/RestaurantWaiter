@@ -15,17 +15,27 @@ class ReadyToPayCubit extends Cubit<ReadyToPayState> {
     required this.accessToken,
   }) : super(const ReadyToPayState());
 
+  void _emitState(ReadyToPayState newState) {
+    if (!isClosed) emit(newState);
+  }
+
   Future<void> load() async {
-    emit(state.copyWith(status: ReadyToPayStatus.loading));
+    if (isClosed) return;
+    _emitState(state.copyWith(status: ReadyToPayStatus.loading));
     try {
       final reservations = await orderRepository.getReadyForPayment(
         branchId: branchId,
         accessToken: accessToken,
       );
-      emit(state.copyWith(status: ReadyToPayStatus.loaded, reservations: reservations));
+      if (isClosed) return;
+      _emitState(state.copyWith(
+        status: ReadyToPayStatus.loaded,
+        reservations: reservations,
+      ));
     } catch (e, stack) {
+      if (isClosed) return;
       debugPrint('[ReadyToPay] load failed: $e\n$stack');
-      emit(state.copyWith(
+      _emitState(state.copyWith(
         status: ReadyToPayStatus.error,
         errorMessage: e.toString().replaceFirst('Exception: ', ''),
       ));
@@ -34,23 +44,25 @@ class ReadyToPayCubit extends Cubit<ReadyToPayState> {
 
   /// Returns null on success, or an error message on failure.
   Future<String?> markAsPaid(String reservationId) async {
-    emit(state.copyWith(markingPaidId: reservationId));
+    if (isClosed) return 'readyToPayMarkError';
+    _emitState(state.copyWith(markingPaidId: reservationId));
     try {
       await orderRepository.markAsPaidByWaiter(
         reservationId: reservationId,
         accessToken: accessToken,
       );
+      if (isClosed) return 'readyToPayMarkError';
       final updated = state.reservations
           .where((r) => r.id != reservationId)
           .toList();
-      emit(state.copyWith(
+      _emitState(state.copyWith(
         reservations: updated,
         clearMarkingPaidId: true,
         status: ReadyToPayStatus.loaded,
       ));
       return null;
     } catch (e) {
-      emit(state.copyWith(clearMarkingPaidId: true));
+      _emitState(state.copyWith(clearMarkingPaidId: true));
       return 'readyToPayMarkError';
     }
   }

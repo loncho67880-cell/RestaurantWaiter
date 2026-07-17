@@ -59,10 +59,7 @@ class _MainShellState extends State<MainShell> {
         }
 
         return Scaffold(
-          body: IndexedStack(
-            index: selectedIndex,
-            children: pages,
-          ),
+          body: pages[selectedIndex],
           bottomNavigationBar: NavigationBar(
             selectedIndex: selectedIndex,
             onDestinationSelected: (i) => setState(() => _selectedIndex = i),

@@ -16,8 +16,13 @@ class WaiterReservationsCubit extends Cubit<WaiterReservationsState> {
     required this.accessToken,
   }) : super(const WaiterReservationsState());
 
+  void _emitState(WaiterReservationsState newState) {
+    if (!isClosed) emit(newState);
+  }
+
   Future<void> load() async {
-    emit(state.copyWith(
+    if (isClosed) return;
+    _emitState(state.copyWith(
       status: WaiterReservationsStatus.loading,
       clearErrors: true,
     ));
@@ -27,16 +32,18 @@ class WaiterReservationsCubit extends Cubit<WaiterReservationsState> {
         branchId: branchId,
         accessToken: accessToken,
       );
+      if (isClosed) return;
       _sortReservations(reservations);
 
-      emit(state.copyWith(
+      _emitState(state.copyWith(
         status: WaiterReservationsStatus.loaded,
         reservations: reservations,
       ));
     } catch (e, stack) {
+      if (isClosed) return;
       debugPrint('ERROR loading reservations: $e');
       debugPrint('$stack');
-      emit(state.copyWith(
+      _emitState(state.copyWith(
         status: WaiterReservationsStatus.error,
         errorKey: 'waiterReservationsLoadError',
         errorMessage: e.toString().replaceFirst('Exception: ', ''),
@@ -46,87 +53,95 @@ class WaiterReservationsCubit extends Cubit<WaiterReservationsState> {
 
   /// Returns null on success, or an error i18n key on failure.
   Future<String?> confirmArrival(String reservationId) async {
-    emit(state.copyWith(confirmingId: reservationId));
+    if (isClosed) return 'waiterConfirmArrivalError';
+    _emitState(state.copyWith(confirmingId: reservationId));
     try {
       final updated = await reservationRepository.confirmAtTableByWaiter(
         reservationId: reservationId,
         accessToken: accessToken,
       );
+      if (isClosed) return 'waiterConfirmArrivalError';
 
       final updatedList = state.reservations
           .map((r) => r.id == updated.id ? updated : r)
           .toList();
       _sortReservations(updatedList);
 
-      emit(state.copyWith(
+      _emitState(state.copyWith(
         reservations: updatedList,
         clearConfirmingId: true,
       ));
       return null;
     } catch (_) {
-      emit(state.copyWith(clearConfirmingId: true));
+      _emitState(state.copyWith(clearConfirmingId: true));
       return 'waiterConfirmArrivalError';
     }
   }
 
   /// Returns null on success, or an error i18n key on failure.
   Future<String?> confirm(String reservationId) async {
-    emit(state.copyWith(confirmingId: reservationId));
+    if (isClosed) return 'waiterConfirmError';
+    _emitState(state.copyWith(confirmingId: reservationId));
     try {
       final updated = await reservationRepository.confirmByWaiter(
         reservationId: reservationId,
         accessToken: accessToken,
       );
+      if (isClosed) return 'waiterConfirmError';
 
       final updatedList = state.reservations
           .map((r) => r.id == updated.id ? updated : r)
           .toList();
       _sortReservations(updatedList);
 
-      emit(state.copyWith(
+      _emitState(state.copyWith(
         reservations: updatedList,
         clearConfirmingId: true,
       ));
       return null;
     } catch (_) {
-      emit(state.copyWith(clearConfirmingId: true));
+      _emitState(state.copyWith(clearConfirmingId: true));
       return 'waiterConfirmError';
     }
   }
 
   Future<String?> markReadyForPayment(String reservationId) async {
-    emit(state.copyWith(markingReadyId: reservationId));
+    if (isClosed) return 'waiterMarkReadyError';
+    _emitState(state.copyWith(markingReadyId: reservationId));
     try {
       await reservationRepository.markReadyForPayment(
         reservationId: reservationId,
         accessToken: accessToken,
       );
+      if (isClosed) return 'waiterMarkReadyError';
 
       final updatedList = state.reservations
           .where((r) => r.id != reservationId)
           .toList();
 
-      emit(state.copyWith(
+      _emitState(state.copyWith(
         reservations: updatedList,
         clearMarkingReadyId: true,
       ));
       return null;
     } catch (_) {
-      emit(state.copyWith(clearMarkingReadyId: true));
+      _emitState(state.copyWith(clearMarkingReadyId: true));
       return 'waiterMarkReadyError';
     }
   }
 
   void replaceReservation(Reservation updated) {
+    if (isClosed) return;
     final updatedList = state.reservations
         .map((r) => r.id == updated.id ? updated : r)
         .toList();
     _sortReservations(updatedList);
-    emit(state.copyWith(reservations: updatedList));
+    _emitState(state.copyWith(reservations: updatedList));
   }
 
   void removeReservation(String reservationId) {
-    emit(state.copyWith(
+    if (isClosed) return;
+    _emitState(state.copyWith(
       reservations:
           state.reservations.where((r) => r.id != reservationId).toList(),
     ));
@@ -138,6 +153,7 @@ class WaiterReservationsCubit extends Cubit<WaiterReservationsState> {
         reservationId: reservationId,
         accessToken: accessToken,
       );
+      if (isClosed) return 'cancelReservationError';
       removeReservation(reservationId);
       return null;
     } catch (_) {

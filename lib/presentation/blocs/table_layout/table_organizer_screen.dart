@@ -25,6 +25,7 @@ class TableOrganizerScreen extends StatelessWidget {
     return AdminGuard(
       child: BranchGuard(
         child: BlocProvider(
+          key: ValueKey('table-layout-${appConfig.branchId}'),
           create: (_) => TableLayoutCubit(
             repository: context.read<TableLayoutRepository>(),
             branchId: appConfig.branchId,

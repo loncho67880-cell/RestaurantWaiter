@@ -4,6 +4,7 @@ import 'package:restaurantwaiter/core/utils/reservation_datetime.dart';
 import 'package:restaurantwaiter/domain/models/reservation.dart';
 import 'package:restaurantwaiter/domain/repositories/reservation_repository.dart';
 import 'package:restaurantwaiter/presentation/blocs/app_config/app_config_cubit.dart';
+import 'package:restaurantwaiter/presentation/blocs/auth/auth_navigation.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/auth_state.dart';
 import 'package:restaurantwaiter/presentation/blocs/auth/authevent.dart';
 import 'package:restaurantwaiter/presentation/blocs/manual_order/manual_order_screen.dart';
@@ -28,6 +29,7 @@ class ActiveReservationsScreen extends StatelessWidget {
 
     return BranchGuard(
       child: BlocProvider(
+        key: ValueKey('reservations-${appConfig.branchId}'),
         create: (_) => WaiterReservationsCubit(
           reservationRepository: context.read<ReservationRepository>(),
           branchId: appConfig.branchId,
@@ -67,13 +69,7 @@ class _ActiveReservationsView extends StatelessWidget {
           IconButton(
             tooltip: t('logout'),
             icon: Icon(Icons.logout_rounded, color: theme.colorScheme.onPrimary),
-            onPressed: () async {
-              context.read<AppConfigCubit>().clearBranch();
-              await context.read<AuthCubit>().signOut();
-              if (context.mounted) {
-                Navigator.pushReplacementNamed(context, '/login');
-              }
-            },
+            onPressed: () => signOutAndResetToLogin(context),
           ),
         ],
       ),
@@ -224,13 +220,12 @@ class _WaiterDrawer extends StatelessWidget {
               onTap: () => Navigator.pop(context),
             ),
             ListTile(
-              leading: Icon(Icons.storefront_rounded,
+              leading: Icon(Icons.logout_rounded,
                   color: theme.colorScheme.primary),
-              title: Text(t('changeBranch')),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacementNamed(context, '/branch-select');
-              },
+              title: Text(t('logout')),
+              // Do not pop first: after await the drawer context is unmounted.
+              // signOutAndResetToLogin captures cubits + root navigator sync.
+              onTap: () => signOutAndResetToLogin(context),
             ),
             ListTile(
               leading:

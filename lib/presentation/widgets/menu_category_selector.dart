@@ -35,6 +35,7 @@ class MenuCategorySelector extends StatelessWidget {
           return _CategoryTile(
             label: category.name,
             selected: category.id == selectedCategoryId,
+            imageUrl: category.imageUrl,
             visual: MenuCategoryVisual.forName(category.name),
             onTap: () => onCategorySelected(category.id),
           );
@@ -47,12 +48,14 @@ class MenuCategorySelector extends StatelessWidget {
 class _CategoryTile extends StatelessWidget {
   final String label;
   final bool selected;
+  final String imageUrl;
   final MenuCategoryVisual visual;
   final VoidCallback onTap;
 
   const _CategoryTile({
     required this.label,
     required this.selected,
+    required this.imageUrl,
     required this.visual,
     required this.onTap,
   });
@@ -62,9 +65,11 @@ class _CategoryTile extends StatelessWidget {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
 
-    final iconBg = selected
-        ? primary
-        : visual.accent.withValues(alpha: 0.12);
+    final iconBg = imageUrl.isNotEmpty
+        ? Colors.transparent
+        : selected
+            ? primary
+            : visual.accent.withValues(alpha: 0.12);
     final iconColor = selected ? theme.colorScheme.onPrimary : visual.accent;
     final labelColor =
         selected ? primary : ThemeContrast.mutedText(theme);
@@ -102,7 +107,19 @@ class _CategoryTile extends StatelessWidget {
                         ]
                       : null,
                 ),
-                child: Icon(visual.icon, color: iconColor, size: 28),
+                child: imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.network(
+                          imageUrl,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              Icon(visual.icon, color: iconColor, size: 28),
+                        ),
+                      )
+                    : Icon(visual.icon, color: iconColor, size: 28),
               ),
               const SizedBox(height: 8),
               Text(

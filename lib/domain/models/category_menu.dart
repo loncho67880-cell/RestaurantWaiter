@@ -6,12 +6,14 @@ class CategoryMenu extends Equatable {
   final String name;
   final int order;
   final List<Dish> dishes;
+  final String imageUrl;
 
   const CategoryMenu({
     required this.id,
     required this.name,
     required this.order,
     required this.dishes,
+    this.imageUrl = '',
   });
 
   factory CategoryMenu.fromJson(Map<String, dynamic> json) {
@@ -24,9 +26,10 @@ class CategoryMenu extends Equatable {
       dishes: (json['dishes'] as List)
           .map((dishJson) => Dish.fromJson(dishJson))
           .toList(),
+      imageUrl: json['imageUrl'] as String? ?? '',
     );
   }
 
   @override
-  List<Object?> get props => [id, name, order, dishes];
+  List<Object?> get props => [id, name, order, dishes, imageUrl];
 }

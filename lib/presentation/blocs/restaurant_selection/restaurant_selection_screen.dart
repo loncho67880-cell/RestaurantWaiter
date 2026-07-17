@@ -53,8 +53,21 @@ class _RestaurantSelectionScreenState extends State<RestaurantSelectionScreen> {
     final theme = Theme.of(context);
     final t = context.read<AppConfigCubit>().translate;
     final authState = context.watch<AuthCubit>().state;
-    final restaurants =
-        authState is AuthAuthenticated ? authState.restaurants : const [];
+
+    if (authState is! AuthAuthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/login',
+          (route) => false,
+        );
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final restaurants = authState.restaurants;
 
     return Scaffold(
       appBar: AppBar(

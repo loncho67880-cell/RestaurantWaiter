@@ -192,7 +192,11 @@ class MyApp extends StatelessWidget {
                 '/restaurant-select': (context) =>
                     const RestaurantSelectionScreen(),
                 '/branch-select': (context) => const BranchSelectionScreen(),
-                '/home': (context) => const MainShell(),
+                '/home': (context) {
+                  final branchId =
+                      context.read<AppConfigCubit>().state.branchId;
+                  return MainShell(key: ValueKey('home-$branchId'));
+                },
                 '/manual-order': (context) => const ManualOrderScreen(),
               },
             );
